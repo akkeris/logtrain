@@ -1,4 +1,4 @@
-package drains
+package router
 
 import (
 	"errors"
