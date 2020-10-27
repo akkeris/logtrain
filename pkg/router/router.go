@@ -3,6 +3,7 @@ package router
 import (
 	"errors"
 	"reflect"
+	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/akkeris/logtrain/pkg/input"
 	"github.com/papertrail/remote_syslog2/syslog"
 )
@@ -11,7 +12,7 @@ import (
  * Responsibilities:
  * - Determining if a drain is misbehaving and temporarily stopping traffic to it.
  *X- A single point for incoming packets from various inputs.
- *X- Manages opening one drain per destination -- on-demand (based on incoming traffic and routes) --
+ *X- Manages opening one drain per destination - on-demand - based on incoming traffic and routes
  * - Manages closing drains when no input(s) have info on that source, or when routes are removed 
  * - Measuring and receiving metrics (and reporting them).
  *
@@ -23,14 +24,8 @@ import (
  * - The router and drains have a 1-many relationship, yet tightly dependent/coupled. 
  */
 
-type DataSource interface {
-	AddRoute() chan LogRoute
-	RemoveRoute() chan LogRoute
-	GetAllRoutes() ([]LogRoute, error)
-}
-
 type Router struct {
-	datasources []DataSource
+	datasources []storage.DataSource
 	deadPacket int
 	drainByEndpoint map[string]*Drain
 	drainsByHost map[string][]*Drain // Used to find open connections to endpoints by hostname
@@ -44,14 +39,7 @@ type Router struct {
 	running bool
 }
 
-type LogRoute struct {
-	Endpoint string
-	Hostname string
-	Tag string
-	failedToWrite int
-}
-
-func NewRouter(datasources []DataSource, stickyPools bool, maxConnections uint32) (*Router, error) {
+func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnections uint32) (*Router, error) {
 	router := Router{
 		datasources: datasources,
 		deadPacket: 0,
@@ -81,14 +69,14 @@ func (router *Router) Dial() error {
 	router.running = true
 	// Begin listening to datasources
 	for _, source := range router.datasources {
-		go func(db DataSource) {
+		go func(db storage.DataSource) {
 			for {
 				select {
 				case route := <- db.AddRoute():
 					router.addRoute(route)
 				case route := <- db.RemoveRoute():
 					router.removeRoute(route)
-				case <- router.stop:
+				case <-router.stop:
 					return
 				}
 			}
@@ -98,7 +86,17 @@ func (router *Router) Dial() error {
 	return nil
 }
 
+func (router *Router) Close() error {
+	router.stop <- struct{}{}
+	close(router.stop)
+	close(router.reloop)
+	return nil
+}
+
 func (router *Router) AddInput(in input.Input, id string) error {
+	if _, ok := router.inputs[id]; ok {
+		return errors.New("This input id already exists.")
+	}
 	router.inputs[id] = in
 	router.reloop <- struct{}{}
 	return nil
@@ -106,10 +104,11 @@ func (router *Router) AddInput(in input.Input, id string) error {
 
 func (router *Router) RemoveInput(id string) error {
 	delete(router.inputs, id)
+	router.reloop <- struct{}{}
 	return nil
 }
 
-func (router *Router) addRoute(r LogRoute) {
+func (router *Router) addRoute(r storage.LogRoute) {
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
 		var found = false
 		for _, endpoint := range endpoints {
@@ -126,7 +125,7 @@ func (router *Router) addRoute(r LogRoute) {
 	}
 }
 
-func (router *Router) removeRoute(r LogRoute) {
+func (router *Router) removeRoute(r storage.LogRoute) {
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
 		eps := make([]string,0)
 		for _, e := range endpoints {
@@ -145,7 +144,7 @@ func (router *Router) removeRoute(r LogRoute) {
 }
 
 func (router *Router) refreshRoutes() (error) {
-	routes := make([]LogRoute, 0)
+	routes := make([]storage.LogRoute, 0)
 	for _, d := range router.datasources {
 		rs, err := d.GetAllRoutes()
 		if err != nil {
@@ -179,7 +178,9 @@ func (router *Router) writeLoop() {
 			chans = append(chans, in.Packets())
 		}
 		inputs := make([]reflect.SelectCase, 0)
+		// THIS MUST BE ENTRY 0, DO NOT MOVE.
 		inputs = append(inputs, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(router.stop)})
+		// THIS MUST BE ENTRY 1, DO NOT MOVE.
 		inputs = append(inputs, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(router.reloop)})
 		for _, ch := range chans {
 			inputs = append(inputs, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
@@ -228,7 +229,6 @@ func (router *Router) writeLoop() {
 					if len(drains) > 0 {
 						router.drainsByHost[packet.Hostname] = drains
 					}
-
 					for _, drain := range drains {
 						select { 
 						case drain.Input<-packet:
