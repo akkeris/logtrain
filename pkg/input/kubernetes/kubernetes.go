@@ -64,6 +64,7 @@ func dir(root string) []string {
 }
 
 func (handler *Kubernetes) Close() error {
+	handler.closing = true 
 	handler.watcher.Close()
 	for _, v := range handler.followers {
 		v.follower.Close()
@@ -238,6 +239,9 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 					return
 				}
 			case err := <-watcher.Errors:
+				if handler.closing {
+					return
+				}
 				select {
 				case handler.Errors() <- err:
 				default:
