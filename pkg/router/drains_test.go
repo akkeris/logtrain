@@ -111,10 +111,10 @@ func CreateSudoSyslogServer(port string) (*SudoSyslogServer, error) {
 
 func TestDrains(t *testing.T) {
 	server, err := CreateSudoSyslogServer("10512")
-	go server.Listen()
 	if err != nil {
 		log.Fatal(err)
 	}
+	go server.Listen()
 	Convey("Ensure drains cannot be created with a larger than 1024 connections", t, func() {
 		drain, err := Create("syslog://localhost", 1025, false)
 		So(drain, ShouldBeNil)

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"reflect"
 	"github.com/akkeris/logtrain/pkg/input"
 	"github.com/papertrail/remote_syslog2/syslog"
@@ -22,8 +23,6 @@ import (
  * - The router and drains have a 1-many relationship, yet tightly dependent/coupled. 
  */
 
-
-
 type DataSource interface {
 	AddRoute() chan LogRoute
 	RemoveRoute() chan LogRoute
@@ -42,6 +41,7 @@ type Router struct {
 	maxConnections uint32
 	stop chan struct{}
 	reloop chan struct{}
+	running bool
 }
 
 type LogRoute struct {
@@ -54,18 +54,18 @@ type LogRoute struct {
 func NewRouter(datasources []DataSource, stickyPools bool, maxConnections uint32) (*Router, error) {
 	router := Router{
 		datasources: datasources,
-		stop: make(chan struct{}, 1),
-		reloop: make(chan struct{}, 1),
-		stickyPools: stickyPools,
-		maxConnections: maxConnections,
 		deadPacket: 0,
-		inputs: make(map[string]input.Input, 0),
 		drainByEndpoint: make(map[string]*Drain),
 		drainsByHost: make(map[string][]*Drain),
-		endpointsByHost: make(map[string][]string),
 		drainsFailedToConnect: make(map[string]bool),
+		endpointsByHost: make(map[string][]string),
+		inputs: make(map[string]input.Input, 0),
+		stickyPools: stickyPools,
+		maxConnections: maxConnections,
+		stop: make(chan struct{}, 1),
+		reloop: make(chan struct{}, 1),
+		running: false,
 	}
-	// Initialize routes
 	if err := router.refreshRoutes(); err != nil {
 		close(router.stop)
 		close(router.reloop)
@@ -75,6 +75,10 @@ func NewRouter(datasources []DataSource, stickyPools bool, maxConnections uint32
 }
 
 func (router *Router) Dial() error {
+	if router.running == true {
+		return errors.New("Dial cannot be called twice.")
+	}
+	router.running = true
 	// Begin listening to datasources
 	for _, source := range router.datasources {
 		go func(db DataSource) {
@@ -90,6 +94,7 @@ func (router *Router) Dial() error {
 			}
 		}(source)
 	}
+	go router.writeLoop()
 	return nil
 }
 
@@ -173,7 +178,7 @@ func (router *Router) writeLoop() {
 		for _, in := range router.inputs {
 			chans = append(chans, in.Packets())
 		}
-		inputs := make([]reflect.SelectCase, len(chans))
+		inputs := make([]reflect.SelectCase, 0)
 		inputs = append(inputs, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(router.stop)})
 		inputs = append(inputs, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(router.reloop)})
 		for _, ch := range chans {
@@ -204,18 +209,26 @@ func (router *Router) writeLoop() {
 						// drain, if not create a new drain for this.
 						if drain, ok := router.drainByEndpoint[endpoint]; ok {
 							router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
+							drains = append(drains, drain)
 						} else {
 							drain, err := Create(endpoint, router.maxConnections, router.stickyPools)
 							if err != nil {
 								router.drainsFailedToConnect[endpoint] = true
+							} else {
+								if err := drain.Dial(); err != nil {
+									router.drainsFailedToConnect[endpoint] = true
+								} else {
+									router.drainByEndpoint[endpoint] = drain
+									router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
+									drains = append(drains, drain)
+								}
 							}
-							router.drainByEndpoint[endpoint] = drain
-							router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
 						}	
 					}
 					if len(drains) > 0 {
 						router.drainsByHost[packet.Hostname] = drains
 					}
+
 					for _, drain := range drains {
 						select { 
 						case drain.Input<-packet:
