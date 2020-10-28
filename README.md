@@ -11,14 +11,15 @@
 
 ## Drain Types
 
-* `elasticsearch://host/bulk/`
+* `es+https://user:password@host?[auth=apikey|bearer|basic]` (aliases, `elasticsearch://` and `es://`). The bearer token is taken from the password portion of the url. 
+* `es+http://user:password@host?[auth=apikey|bearer|basic]`
 * `http://host/path`
 * `https://host/path`
 * `syslog+tls://host:port?[ca=]`
 * `syslog+http://host:port`
 * `syslog+https://host:port`
 * `syslog+tcp://host:port`
-* `syslog+udp://` (aliases: `syslog://`)
+* `syslog+udp://` (aliases, `syslog://`)
 
 ## Configuration
 

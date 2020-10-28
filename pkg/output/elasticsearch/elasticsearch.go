@@ -1,12 +1,13 @@
 package elasticsearch
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"github.com/papertrail/remote_syslog2/syslog"
 )
 
 type Syslog struct {
@@ -49,6 +50,7 @@ func Create(endpoint string) (*Syslog, error) {
 	if err != nil {
 		return nil, err;
 	}
+	u.Path = u.Path + "/_bulk"
 	return &Syslog {
 		endpoint: endpoint,
 		url: *u,
@@ -88,14 +90,29 @@ func (log *Syslog) loop() {
 			payload = payload + "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" 
 		case <-timer.C:
 			if payload != "" {
-				resp, err := log.client.Post(log.url.String(), "application/json", strings.NewReader(string(payload)))
-				payload = ""
+				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
+				req.Header.Set("content-type", "application/json")
+				if pwd, ok := log.url.User.Password(); ok {
+					if log.url.Query().Get("auth") == "bearer" {
+						req.Header.Set("Authorization", "Bearer " + pwd)
+					} else if log.url.Query().Get("auth") == "apikey" {
+						req.Header.Set("Authorization", "ApiKey " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))
+					} else {
+						req.Header.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))
+					}
+				}
 				if err != nil {
 					log.errors <- err
 				} else {
-					resp.Body.Close()
-					if (resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK) {
-						log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
+					resp, err := log.client.Do(req)
+					payload = ""
+					if err != nil {
+						log.errors <- err
+					} else {
+						resp.Body.Close()
+						if (resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK) {
+							log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
+						}
 					}
 				}
 			}

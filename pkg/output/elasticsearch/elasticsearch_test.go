@@ -1,6 +1,7 @@
 package elasticsearch
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"log"
 	"testing"
@@ -10,9 +11,12 @@ import (
 	"github.com/akkeris/logtrain/pkg/output/packet"
 	syslog2 "github.com/papertrail/remote_syslog2/syslog"
 )
-
+type TestHttpMessage struct {
+	Request *http.Request
+	Body string
+}
 type TestHttpServer struct {
-	Incoming chan string
+	Incoming chan TestHttpMessage
 	ReturnError bool
 }
 
@@ -26,14 +30,17 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write(([]byte)("ERROR"))
 	} else {
-		hts.Incoming <- string(bytes)
+		hts.Incoming <- TestHttpMessage{
+			Request: req,
+			Body: string(bytes),
+		}
 		res.Write(([]byte)("OK"))
 	}
 }
 
 func TestElasticsearchHttpOutput(t *testing.T) {
 	testHttpServer := TestHttpServer{
-		Incoming: make(chan string, 1),
+		Incoming: make(chan TestHttpMessage, 1),
 		ReturnError: false,
 	}
 	s := &http.Server{
@@ -44,7 +51,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	syslog, err := Create("elasticsearch+http://localhost:8083/tests")
+	syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests")
 	go s.ListenAndServe()
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
@@ -69,7 +76,8 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		syslog.Packets() <- p
 		select {
 		case message := <-testHttpServer.Incoming:
-			So(message, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic " + base64.StdEncoding.EncodeToString([]byte("user:pass")))
+			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
@@ -93,7 +101,57 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		}
 	})
 	Convey("Ensure we can close a syslog end point...", t, func() {
-		s.Close()
 		So(syslog.Close(), ShouldBeNil)
+	})
+	Convey("Test ApiKey Auth", t, func() {
+		testHttpServer.ReturnError = false
+		syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests?auth=apikey")
+		So(err, ShouldBeNil)
+		So(syslog.Dial(), ShouldBeNil)
+		now := time.Now()
+		p := syslog2.Packet{
+				Severity: 0, 
+				Facility: 0, 
+				Time: now,
+				Hostname: "localhost", 
+				Tag: "HttpSyslogChannelTest", 
+				Message: "Test Message",
+			}
+		syslog.Packets() <- p
+		select {
+		case message := <-testHttpServer.Incoming:
+			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey " + base64.StdEncoding.EncodeToString([]byte("user:pass")))
+			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+		case error := <-syslog.Errors():
+			log.Fatal(error.Error())
+		}
+		So(syslog.Close(), ShouldBeNil)
+	})
+	Convey("Test Bearer Auth", t, func() {
+		testHttpServer.ReturnError = false
+		syslog, err := Create("elasticsearch+http://:pass@localhost:8083/tests?auth=bearer")
+		So(err, ShouldBeNil)
+		So(syslog.Dial(), ShouldBeNil)
+		now := time.Now()
+		p := syslog2.Packet{
+				Severity: 0, 
+				Facility: 0, 
+				Time: now,
+				Hostname: "localhost", 
+				Tag: "HttpSyslogChannelTest", 
+				Message: "Test Message",
+			}
+		syslog.Packets() <- p
+		select {
+		case message := <-testHttpServer.Incoming:
+			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
+			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+		case error := <-syslog.Errors():
+			log.Fatal(error.Error())
+		}
+		So(syslog.Close(), ShouldBeNil)
+	})
+	Convey("Cleanup", t, func() {
+		s.Close()
 	})
 }
