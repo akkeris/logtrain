@@ -7,6 +7,7 @@ import (
 	"time"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/papertrail/remote_syslog2/syslog"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func write(f *os.File, content string) error {
@@ -26,7 +27,7 @@ func TestKubernetesInput(t *testing.T) {
 	if err := os.Mkdir("/tmp/kubernetes_test", 0755); err != nil {
 		log.Fatal(err)
 	}
-	handler, err := Create("/tmp/kubernetes_test")
+	handler, err := Create("/tmp/kubernetes_test", fake.NewSimpleClientset())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,8 +42,8 @@ func TestKubernetesInput(t *testing.T) {
 			Severity:0,
 			Facility:0,
 			Message:"line",
-			Tag:"alamotest2112",
-			Hostname:"alamotest2112-64cd4f4ff7-6bqb8.default", 
+			Tag:"64cd4f4ff7-6bqb8",
+			Hostname:"alamotest2112.default", 
 			Time:time.Now(),
 		}
 		f, err := os.Create("/tmp/kubernetes_test/alamotest2112-64cd4f4ff7-6bqb8_default_alamotest2112-a54517ce9ceb1e1d87fc41c263a3d7b95fd177a01b9acea61c643727a92306b1.log")

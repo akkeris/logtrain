@@ -3,17 +3,19 @@ package kubernetes
 import (
     "encoding/json"
     "errors"
-    //"log"
+    "log"
     "io"
     "os"
     "regexp"
-    "strings"
     "sync"
     "time"
     "path/filepath"
     "github.com/fsnotify/fsnotify"
+    "github.com/akkeris/logtrain/internal/storage"
 	"github.com/trevorlinton/go-tail/follower"
 	"github.com/papertrail/remote_syslog2/syslog"
+	api "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const kubeTime = "2006-01-02T15:04:05.000000000Z"
@@ -40,6 +42,7 @@ type fileWatcher struct {
 }
 
 type Kubernetes struct {
+	kube kubernetes.Interface
 	closing bool
 	errors chan error
 	followers map[string]fileWatcher
@@ -136,27 +139,15 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 		return
 	}
 
-	var hostname string = ""
-	var tag string = ""
-	if os.Getenv("AKKERIS") == "true" {
-		// This gets akkeris specifc
-		// TODO: find a more scalable way of dealing with this.
-		dyno := strings.Split(details.Container, "--")
-		app := dyno[0]
-		dyno_type := "web"
-		if len(dyno) > 1 {
-			dyno_type = dyno[1]
-		}
-		process := strings.Replace(details.Pod, details.Container + "-", "", 1)
-		hostname = app + "-" + details.Namespace
-		tag = dyno_type + "." + process
-	 	// end akkeris specific stuff.
-	 } else {
-	 	hostname = details.Pod + "." + details.Namespace
-	 	tag = details.Container
-	 }
-
-
+	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
+	hostAndTag := storage.DeriveHostnameFromPod(details.Pod, details.Namespace, useAkkerisHosts)
+	pod, err := handler.kube.CoreV1().Pods(details.Namespace).Get(details.Pod, api.GetOptions{})
+	if err != nil {
+		log.Printf("Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
+	} else {
+		hostAndTag = storage.GetHostNameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
+	}
+	log.Printf("Got: %#+v\n", hostAndTag)
 	proc, err := follower.New(file, config)
 	if err != nil {
 		handler.Errors() <- err
@@ -165,8 +156,8 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	fw := fileWatcher{
 		follower: proc,
 		stop: make(chan struct{}, 1),
-		hostname: hostname,
-		tag: tag,
+		hostname: hostAndTag.Hostname,
+		tag: hostAndTag.Tag,
 		errors: 0,
 	}
 	handler.followersMutex.Lock()
@@ -252,11 +243,12 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 	return watcher, nil
 }
 
-func Create(logpath string) (*Kubernetes, error) {
+func Create(logpath string, kube kubernetes.Interface) (*Kubernetes, error) {
 	if logpath == "" {
 		logpath = "/var/log/containers"
 	}
 	return &Kubernetes{
+		kube: kube,
 		errors: make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
 		path: logpath,

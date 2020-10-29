@@ -93,9 +93,9 @@ func (log *Syslog) loop() {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
 				req.Header.Set("content-type", "application/json")
 				if pwd, ok := log.url.User.Password(); ok {
-					if log.url.Query().Get("auth") == "bearer" {
+					if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
 						req.Header.Set("Authorization", "Bearer " + pwd)
-					} else if log.url.Query().Get("auth") == "apikey" {
+					} else if strings.ToLower(log.url.Query().Get("auth")) == "apikey" {
 						req.Header.Set("Authorization", "ApiKey " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))
 					} else {
 						req.Header.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))

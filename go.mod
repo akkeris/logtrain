@@ -13,7 +13,13 @@ require (
 	github.com/papertrail/remote_syslog2 v0.0.0-20190614180052-09062fc2b02a
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/trevorlinton/go-tail v0.0.0-20201015160030-6f89038cc22c
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.33.0
-	google.golang.org/protobuf v1.23.0
+	google.golang.org/protobuf v1.24.0
 	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
+	k8s.io/api v0.17.0
+	k8s.io/apimachinery v0.17.0
+	k8s.io/client-go v0.17.0
+	k8s.io/klog v1.0.0 // indirect
+	k8s.io/utils v0.0.0-20201027101359-01387209bb0d // indirect
 )
