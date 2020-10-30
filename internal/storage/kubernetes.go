@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"log"
 	"errors"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -10,14 +10,18 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
+// Annotations on deployment, statefulset, or daemonset
 const akkerisAppAnnotationKey = "akkeris.io/app-name"
 const akkerisDynoTypeAnnotationKey = "akkeris.io/dyno-type"
+
+// TODO: Having this on the pod will cause a scale down (say from 3 pods to 2 pods) to
+// accidently remove the route.  Find a solution, including moving these to top-level
+// objects?
 const drainAnnotationKey = "logtrain.akkeris.io/drains"
 const hostnameAnnotationKey = "logtrain.akkeris.io/hostname"
 const tagAnnotationKey = "logtrain.akkeris.io/tag"
@@ -40,16 +44,32 @@ func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, e
 	refs := obj.GetOwnerReferences()
 	for _, ref := range refs {
 		if ref.Controller == nil || *ref.Controller == false {
-			rObj, err := kube.CoreV1().RESTClient().Get().Resource(ref.Kind + "/" + obj.GetNamespace() + "/" + ref.Name).Do().Get()
-			if err != nil {
-				return nil, err
-			}
-			// React to the first owner we find, unsure if its possible to have more than one
-			// for a pod path.
-			if newObj, ok := rObj.(api.Object); ok {
-				return newObj, nil
+			if strings.ToLower(ref.Kind) == "replicaset" || strings.ToLower(ref.Kind) == "replicasets" {
+				nObj, err := kube.AppsV1().ReplicaSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "deployment" || strings.ToLower(ref.Kind) == "deployments" {
+				nObj, err := kube.AppsV1().Deployments(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "daemonset" || strings.ToLower(ref.Kind) == "daemonsets" {
+				nObj, err := kube.AppsV1().DaemonSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "statefulset" || strings.ToLower(ref.Kind) == "statefulsets" {
+				nObj, err := kube.AppsV1().StatefulSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
 			} else {
-				return nil, errors.New("Cannot cast object returned as owner to objectmeta")
+				return nil, errors.New("unrecognized object type " + ref.Kind)
 			}
 		}
 	}
@@ -61,9 +81,9 @@ func DeriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts 
 	parts := strings.Split(podName, "-")
 	if useAkkerisHosts {
 		podId := strings.Join(parts[len(parts)-2:], "-")
-		appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 1)
-		if appAndDyno[1] == "" {
-			appAndDyno[1] = "web"
+		appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
+		if len(appAndDyno) < 2 {
+			appAndDyno = append(appAndDyno, "web")
 		}
 		return &HostnameAndTag{
 			Hostname: appAndDyno[0] + "-" + podNamespace,
@@ -72,11 +92,21 @@ func DeriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts 
 	}
 	return &HostnameAndTag{
 		Hostname: strings.Join(parts[:len(parts)-2], "-") + "." + podNamespace,
-		Tag: strings.Join(parts[len(parts)-2:], "-"),
+		Tag: podName,
 	}
 }
 
+func akkerisGetTag(parts []string) string {
+	podId := strings.Join(parts[len(parts)-2:], "-")
+	appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
+	if len(appAndDyno) < 2 {
+		appAndDyno = append(appAndDyno, "web")
+	}
+	return appAndDyno[1] + "." + podId
+}
+
 func GetHostNameAndTagFromPod(kube kubernetes.Interface, pod *v1.Pod, useAkkerisHosts bool) *HostnameAndTag {
+	parts := strings.Split(pod.GetName(), "-")
 	if host, ok := pod.GetAnnotations()[hostnameAnnotationKey]; ok {
 		if tag, ok := pod.GetAnnotations()[tagAnnotationKey]; ok {
 			return &HostnameAndTag{
@@ -84,39 +114,53 @@ func GetHostNameAndTagFromPod(kube kubernetes.Interface, pod *v1.Pod, useAkkeris
 				Tag: tag,
 			}
 		} else {
-			return &HostnameAndTag{
-				Hostname: host,
-				Tag: "",
+			if useAkkerisHosts == true {
+				return &HostnameAndTag{
+					Hostname: host,
+					Tag: akkerisGetTag(parts),
+				}
+			} else {
+				return &HostnameAndTag{
+					Hostname: host,
+					Tag: pod.GetName(),
+				}
 			}
 		}
 	}
 	top, err := getTopLevelObject(kube, pod)
 	if err != nil {
-		log.Printf("Unable to get top level object for pod %#+v due to %s", pod, err.Error())
+		log.Printf("Unable to get top level object for pod %s/%s due to %s", pod.GetNamespace(), pod.GetName(), err.Error())
 		return DeriveHostnameFromPod(pod.GetName(), pod.GetNamespace(), useAkkerisHosts)
 	}
 	if useAkkerisHosts == true {
-		if appName, ok := top.GetAnnotations()[akkerisAppAnnotationKey]; ok {
-			if dynoType, ok := top.GetAnnotations()[akkerisDynoTypeAnnotationKey]; ok {
-				tag := ""
-				if dynoType == "web" {
-					tag = strings.ReplaceAll(pod.GetName(), appName + "-", "")
-				} else {
-					tag = strings.ReplaceAll(pod.GetName(), appName + "--" + dynoType + "-", "")
-				}
-				return &HostnameAndTag{
-					Hostname: appName + "-" + pod.GetNamespace(),
-					Tag: dynoType + "." + tag,
-				}
+		appName, ok1 := top.GetAnnotations()[akkerisAppAnnotationKey]
+		dynoType, ok2 := top.GetAnnotations()[akkerisDynoTypeAnnotationKey]
+		if ok1 && ok2 {
+			podId := strings.Join(parts[len(parts)-2:], "-")
+			return &HostnameAndTag{
+				Hostname: appName + "-" + pod.GetNamespace(),
+				Tag: dynoType + "." + podId,
 			}
 		}
-		return DeriveHostnameFromPod(pod.GetName(), pod.GetNamespace(), useAkkerisHosts)
+		return &HostnameAndTag{
+			Hostname: top.GetName() + "-" + pod.GetNamespace(),
+			Tag: akkerisGetTag(parts),
+		}
 	}
 	return &HostnameAndTag{
 		Hostname: top.GetName() + "." + pod.GetNamespace(),
 		Tag: pod.GetName(),
 	}
 }
+
+/*
+ * TODO: This method is a way of deriving hostnames for pods by looking at the services
+ * pointing at said pod, there may be a future use case for wanting to report the service
+ * hostname in logs, but for now we'll use the current logic of finding the top-level objects name.
+
+import (
+	"k8s.io/apimachinery/pkg/labels"
+)
 
 func GetHostNameFromServicesGoingToAPod(kube kubernetes.Interface, pod *v1.Pod, useAkkerisHosts bool) []string {
 	if annotation, ok := pod.GetAnnotations()[hostnameAnnotationKey]; ok {
@@ -142,6 +186,7 @@ func GetHostNameFromServicesGoingToAPod(kube kubernetes.Interface, pod *v1.Pod, 
 		return hosts
 	}
 }
+*/
 
 func (kds *KubernetesDataSource) AddRoute() chan LogRoute {
 	return kds.add
@@ -198,7 +243,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 	rest := kube.CoreV1().RESTClient()
 	listWatch := cache.NewListWatchFromClient(rest, "pods", "", fields.Everything())
 	listWatch.ListFunc = func(options api.ListOptions) (runtime.Object, error) {
-		return rest.Get().Resource("pods").Do().Get()
+		return kube.CoreV1().Pods(api.NamespaceAll).List(options)
 	}
 	listWatch.WatchFunc = func(options api.ListOptions) (watch.Interface, error) {
 		return kube.CoreV1().Pods(api.NamespaceAll).Watch(api.ListOptions{})

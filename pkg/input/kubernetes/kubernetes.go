@@ -147,7 +147,6 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	} else {
 		hostAndTag = storage.GetHostNameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
-	log.Printf("Got: %#+v\n", hostAndTag)
 	proc, err := follower.New(file, config)
 	if err != nil {
 		handler.Errors() <- err

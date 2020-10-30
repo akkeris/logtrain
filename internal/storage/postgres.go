@@ -6,16 +6,16 @@ type PostgresDataSource struct {
 	routes []LogRoute
 }
 
-func (kds *PostgresDataSource) AddRoute() chan LogRoute {
-	return kds.add
+func (pds *PostgresDataSource) AddRoute() chan LogRoute {
+	return pds.add
 }
 
-func (kds *PostgresDataSource) RemoveRoute() chan LogRoute {
-	return kds.remove
+func (pds *PostgresDataSource) RemoveRoute() chan LogRoute {
+	return pds.remove
 }
 
-func (kds *PostgresDataSource) GetAllRoutes() ([]LogRoute, error) {
-	return kds.routes, nil
+func (pds *PostgresDataSource) GetAllRoutes() ([]LogRoute, error) {
+	return pds.routes, nil
 }
 
 func CreatePostgresDataSource() (*PostgresDataSource, error) {

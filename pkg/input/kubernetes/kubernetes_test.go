@@ -8,6 +8,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/papertrail/remote_syslog2/syslog"
 	"k8s.io/client-go/kubernetes/fake"
+	core "k8s.io/api/core/v1"
+	apps "k8s.io/api/apps/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func write(f *os.File, content string) error {
@@ -27,7 +30,18 @@ func TestKubernetesInput(t *testing.T) {
 	if err := os.Mkdir("/tmp/kubernetes_test", 0755); err != nil {
 		log.Fatal(err)
 	}
-	handler, err := Create("/tmp/kubernetes_test", fake.NewSimpleClientset())
+	deployment := apps.Deployment{}
+	deployment.SetName("alamotest2112")
+	deployment.SetNamespace("default")
+	replicaset := apps.ReplicaSet{}
+	replicaset.SetName("alamotest2112-64cd4f4ff7")
+	replicaset.SetNamespace("default")
+	replicaset.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+	pod := core.Pod{}
+	pod.SetName("alamotest2112-64cd4f4ff7-6bqb8")
+	pod.SetNamespace("default")
+	pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"replicaset", Name:"alamotest2112-64cd4f4ff7"}})
+	handler, err := Create("/tmp/kubernetes_test", fake.NewSimpleClientset(pod.DeepCopyObject(),replicaset.DeepCopyObject(),deployment.DeepCopyObject()))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,7 +56,7 @@ func TestKubernetesInput(t *testing.T) {
 			Severity:0,
 			Facility:0,
 			Message:"line",
-			Tag:"64cd4f4ff7-6bqb8",
+			Tag:"alamotest2112-64cd4f4ff7-6bqb8",
 			Hostname:"alamotest2112.default", 
 			Time:time.Now(),
 		}

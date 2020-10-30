@@ -23,6 +23,8 @@ const rfc5424time = "2006-01-02T15:04:05.999999Z07:00"
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
 const MaxLogSize int = 99990
 
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
+
 func Test(endpoint string) bool {
 	for _, schema := range syslogSchemas {
 		if strings.HasPrefix(strings.ToLower(endpoint), schema) == true {
