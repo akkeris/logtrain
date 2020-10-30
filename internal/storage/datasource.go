@@ -7,8 +7,8 @@ type DataSource interface {
 }
 
 type LogRoute struct {
-	Endpoint string
-	Hostname string
-	Tag string
+	Endpoint      string
+	Hostname      string
+	Tag           string
 	failedToWrite int
 }

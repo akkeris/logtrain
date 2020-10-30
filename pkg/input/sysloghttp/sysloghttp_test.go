@@ -1,15 +1,14 @@
 package sysloghttp
 
 import (
+	syslog "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"log"
-	"testing"
-	"time"
 	"net/http"
 	"strings"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"testing"
+	"time"
 )
-
 
 func TestJsonHttpOutput(t *testing.T) {
 	handler, err := Create()
@@ -34,20 +33,20 @@ func TestJsonHttpOutput(t *testing.T) {
 
 	Convey("Ensure we can receive messages via the http syslog stream payload", t, func() {
 		p := syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"web",
-			Hostname:"name-namespace", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "web",
+			Hostname: "name-namespace",
+			Time:     time.Now(),
 		}
 		p2 := syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello2",
-			Tag:"web2",
-			Hostname:"name-namespace2", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello2",
+			Tag:      "web2",
+			Hostname: "name-namespace2",
+			Time:     time.Now(),
 		}
 		data := p.Generate(1024) + "\n" + p2.Generate(1024)
 		resp, err := http.Post("http://localhost:8090/stream-test", "application/syslog", strings.NewReader(string(data)))

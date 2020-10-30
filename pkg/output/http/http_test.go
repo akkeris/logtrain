@@ -1,17 +1,17 @@
 package http
 
 import (
+	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"testing"
 	"time"
-	"net/http"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
 )
 
 type TestHttpServer struct {
-	Incoming chan string
+	Incoming    chan string
 	ReturnError bool
 }
 
@@ -32,7 +32,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 
 func TestJSONHttpOutput(t *testing.T) {
 	testHttpServer := TestHttpServer{
-		Incoming: make(chan string, 1),
+		Incoming:    make(chan string, 1),
 		ReturnError: false,
 	}
 	s := &http.Server{
@@ -57,12 +57,12 @@ func TestJSONHttpOutput(t *testing.T) {
 	})
 	Convey("Ensure we can send syslog packets", t, func() {
 		syslog.Packets() <- syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Hostname: "localhost", 
-				Tag: "HttpChannelTest", 
-				Message: "Test Message",
-			}
+			Severity: 0,
+			Facility: 0,
+			Hostname: "localhost",
+			Tag:      "HttpChannelTest",
+			Message:  "Test Message",
+		}
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message, ShouldContainSubstring, "\"severity\":0")
@@ -73,17 +73,17 @@ func TestJSONHttpOutput(t *testing.T) {
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
-		
+
 	})
 	Convey("Ensure we receive an error sending to a erroring endpoint", t, func() {
 		testHttpServer.ReturnError = true
 		syslog.Packets() <- syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Hostname: "localhost", 
-				Tag: "HttpChannelTest", 
-				Message: "Failed Message That Shouldn't Happen",
-			}
+			Severity: 0,
+			Facility: 0,
+			Hostname: "localhost",
+			Tag:      "HttpChannelTest",
+			Message:  "Failed Message That Shouldn't Happen",
+		}
 		select {
 		case <-testHttpServer.Incoming:
 			log.Fatal("No message should have been received from incoming...")

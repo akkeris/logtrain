@@ -3,24 +3,26 @@ package elasticsearch
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/papertrail/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-	"github.com/papertrail/remote_syslog2/syslog"
 )
 
 type Syslog struct {
-	url url.URL
+	url      url.URL
 	endpoint string
-	client *http.Client
-	packets chan syslog.Packet
-	errors chan error
-	stop chan struct{}
+	client   *http.Client
+	packets  chan syslog.Packet
+	errors   chan error
+	stop     chan struct{}
 }
 
 const rfc5424time = "2006-01-02T15:04:05.999999Z07:00"
+
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
+
 const MaxLogSize int = 99990
 
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
@@ -50,16 +52,16 @@ func Create(endpoint string) (*Syslog, error) {
 	}
 	u, err := url.Parse(toUrl(endpoint))
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
 	u.Path = u.Path + "/_bulk"
-	return &Syslog {
+	return &Syslog{
 		endpoint: endpoint,
-		url: *u,
-		client: &http.Client{},
-		packets: make(chan syslog.Packet, 10),
-		errors: make(chan error, 1),
-		stop: make(chan struct{}, 1),
+		url:      *u,
+		client:   &http.Client{},
+		packets:  make(chan syslog.Packet, 10),
+		errors:   make(chan error, 1),
+		stop:     make(chan struct{}, 1),
 	}, nil
 }
 
@@ -76,10 +78,10 @@ func (log *Syslog) Close() error {
 func (log *Syslog) Pools() bool {
 	return true
 }
-func (log *Syslog) Packets() (chan syslog.Packet) {
+func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
-func (log *Syslog) Errors() (chan error) {
+func (log *Syslog) Errors() chan error {
 	return log.errors
 }
 
@@ -89,18 +91,18 @@ func (log *Syslog) loop() {
 	for {
 		select {
 		case p := <-log.packets:
-			payload = payload + "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" 
+			payload = payload + "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
 				req.Header.Set("content-type", "application/json")
 				if pwd, ok := log.url.User.Password(); ok {
 					if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
-						req.Header.Set("Authorization", "Bearer " + pwd)
+						req.Header.Set("Authorization", "Bearer "+pwd)
 					} else if strings.ToLower(log.url.Query().Get("auth")) == "apikey" {
-						req.Header.Set("Authorization", "ApiKey " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))
+						req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
 					} else {
-						req.Header.Set("Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(log.url.User.Username() + ":" + string(pwd))))
+						req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
 					}
 				}
 				if err != nil {
@@ -112,7 +114,7 @@ func (log *Syslog) loop() {
 						log.errors <- err
 					} else {
 						resp.Body.Close()
-						if (resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK) {
+						if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
 							log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
 						}
 					}

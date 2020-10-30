@@ -2,23 +2,24 @@ package sysloghttp
 
 import (
 	"errors"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
 )
 
 type Syslog struct {
-	url url.URL
+	url      url.URL
 	endpoint string
-	client *http.Client
-	packets chan syslog.Packet
-	errors chan error
-	stop chan struct{}
+	client   *http.Client
+	packets  chan syslog.Packet
+	errors   chan error
+	stop     chan struct{}
 }
 
 var syslogSchemas = []string{"syslog+http://", "syslog+https://"}
+
 const MaxLogSize int = 99990
 
 func Test(endpoint string) bool {
@@ -36,15 +37,15 @@ func Create(endpoint string) (*Syslog, error) {
 	}
 	u, err := url.Parse(strings.Replace(endpoint, "syslog+", "", 1))
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
-	return &Syslog {
+	return &Syslog{
 		endpoint: endpoint,
-		url: *u,
-		client: &http.Client{},
-		packets: make(chan syslog.Packet, 10),
-		errors: make(chan error, 1),
-		stop: make(chan struct{}, 1),
+		url:      *u,
+		client:   &http.Client{},
+		packets:  make(chan syslog.Packet, 10),
+		errors:   make(chan error, 1),
+		stop:     make(chan struct{}, 1),
 	}, nil
 }
 
@@ -61,10 +62,10 @@ func (log *Syslog) Close() error {
 func (log *Syslog) Pools() bool {
 	return true
 }
-func (log *Syslog) Packets() (chan syslog.Packet) {
+func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
-func (log *Syslog) Errors() (chan error) {
+func (log *Syslog) Errors() chan error {
 	return log.errors
 }
 
@@ -83,7 +84,7 @@ func (log *Syslog) loop() {
 					log.errors <- err
 				} else {
 					resp.Body.Close()
-					if (resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK) {
+					if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
 						log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
 					}
 				}

@@ -2,10 +2,10 @@ package router
 
 import (
 	"errors"
-	"reflect"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/akkeris/logtrain/pkg/input"
 	"github.com/papertrail/remote_syslog2/syslog"
+	"reflect"
 )
 
 /*
@@ -13,7 +13,7 @@ import (
  * - Determining if a drain is misbehaving and temporarily stopping traffic to it.
  *X- A single point for incoming packets from various inputs.
  *X- Manages opening one drain per destination - on-demand - based on incoming traffic and routes
- * - Manages closing drains when no input(s) have info on that source, or when routes are removed 
+ * - Manages closing drains when no input(s) have info on that source, or when routes are removed
  * - Measuring and receiving metrics (and reporting them).
  *
  * Principals:
@@ -21,38 +21,38 @@ import (
  * - Data sources are added to the router, it pulls (and listens) to new routes from.
  * - Add inputs to the router (anything in ./pkg/input/).
  * - Router automatically creates ./pkg/output through the drains based on needs.
- * - The router and drains have a 1-many relationship, yet tightly dependent/coupled. 
+ * - The router and drains have a 1-many relationship, yet tightly dependent/coupled.
  */
 
 type Router struct {
-	datasources []storage.DataSource
-	deadPacket int
-	drainByEndpoint map[string]*Drain
-	drainsByHost map[string][]*Drain // Used to find open connections to endpoints by hostname
+	datasources           []storage.DataSource
+	deadPacket            int
+	drainByEndpoint       map[string]*Drain
+	drainsByHost          map[string][]*Drain // Used to find open connections to endpoints by hostname
 	drainsFailedToConnect map[string]bool
-	endpointsByHost map[string][]string // Used to find defined endpoints by hostname (but may or may not be open)
-	inputs map[string]input.Input
-	stickyPools bool
-	maxConnections uint32
-	stop chan struct{}
-	reloop chan struct{}
-	running bool
+	endpointsByHost       map[string][]string // Used to find defined endpoints by hostname (but may or may not be open)
+	inputs                map[string]input.Input
+	stickyPools           bool
+	maxConnections        uint32
+	stop                  chan struct{}
+	reloop                chan struct{}
+	running               bool
 }
 
 func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnections uint32) (*Router, error) {
 	router := Router{
-		datasources: datasources,
-		deadPacket: 0,
-		drainByEndpoint: make(map[string]*Drain),
-		drainsByHost: make(map[string][]*Drain),
+		datasources:           datasources,
+		deadPacket:            0,
+		drainByEndpoint:       make(map[string]*Drain),
+		drainsByHost:          make(map[string][]*Drain),
 		drainsFailedToConnect: make(map[string]bool),
-		endpointsByHost: make(map[string][]string),
-		inputs: make(map[string]input.Input, 0),
-		stickyPools: stickyPools,
-		maxConnections: maxConnections,
-		stop: make(chan struct{}, 1),
-		reloop: make(chan struct{}, 1),
-		running: false,
+		endpointsByHost:       make(map[string][]string),
+		inputs:                make(map[string]input.Input, 0),
+		stickyPools:           stickyPools,
+		maxConnections:        maxConnections,
+		stop:                  make(chan struct{}, 1),
+		reloop:                make(chan struct{}, 1),
+		running:               false,
 	}
 	if err := router.refreshRoutes(); err != nil {
 		close(router.stop)
@@ -72,9 +72,9 @@ func (router *Router) Dial() error {
 		go func(db storage.DataSource) {
 			for {
 				select {
-				case route := <- db.AddRoute():
+				case route := <-db.AddRoute():
 					router.addRoute(route)
-				case route := <- db.RemoveRoute():
+				case route := <-db.RemoveRoute():
 					router.removeRoute(route)
 				case <-router.stop:
 					return
@@ -127,7 +127,7 @@ func (router *Router) addRoute(r storage.LogRoute) {
 
 func (router *Router) removeRoute(r storage.LogRoute) {
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
-		eps := make([]string,0)
+		eps := make([]string, 0)
 		for _, e := range endpoints {
 			if e != r.Endpoint {
 				eps = append(eps, e)
@@ -143,7 +143,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	// disconnect any that did not appear in this route refresh.
 }
 
-func (router *Router) refreshRoutes() (error) {
+func (router *Router) refreshRoutes() error {
 	routes := make([]storage.LogRoute, 0)
 	for _, d := range router.datasources {
 		rs, err := d.GetAllRoutes()
@@ -161,7 +161,7 @@ func (router *Router) refreshRoutes() (error) {
 			for _, z := range v {
 				if z == route.Endpoint && k == route.Hostname {
 					found = true
-				}	
+				}
 			}
 		}
 		if !found {
@@ -198,8 +198,8 @@ func (router *Router) writeLoop() {
 			if packet, ok := value.Interface().(syslog.Packet); ok {
 				if drains, ok := router.drainsByHost[packet.Hostname]; ok {
 					for _, drain := range drains {
-						select { 
-						case drain.Input<-packet:
+						select {
+						case drain.Input <- packet:
 						default:
 						}
 					}
@@ -224,14 +224,14 @@ func (router *Router) writeLoop() {
 									drains = append(drains, drain)
 								}
 							}
-						}	
+						}
 					}
 					if len(drains) > 0 {
 						router.drainsByHost[packet.Hostname] = drains
 					}
 					for _, drain := range drains {
-						select { 
-						case drain.Input<-packet:
+						select {
+						case drain.Input <- packet:
 						default:
 						}
 					}
@@ -241,10 +241,9 @@ func (router *Router) writeLoop() {
 			} else if chosen == 0 /* stop */ {
 				return
 			} else if chosen == 1 /* reloop */ {
-				remaining=0
+				remaining = 0
 				break
 			}
 		}
 	}
 }
-

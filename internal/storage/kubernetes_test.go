@@ -1,14 +1,13 @@
 package storage
 
 import (
-	"log"
-	"time"
-	"testing"
 	. "github.com/smartystreets/goconvey/convey"
-	"k8s.io/client-go/kubernetes/fake"
 	apps "k8s.io/api/apps/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"log"
+	"testing"
+	"time"
 )
-
 
 func TestKubernetesDataSource(t *testing.T) {
 	kube := fake.NewSimpleClientset()

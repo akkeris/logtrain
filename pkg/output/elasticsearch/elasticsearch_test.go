@@ -2,21 +2,22 @@ package elasticsearch
 
 import (
 	"encoding/base64"
-	"io/ioutil"
-	"log"
-	"testing"
-	"time"
-	"net/http"
-	. "github.com/smartystreets/goconvey/convey"
 	"github.com/akkeris/logtrain/pkg/output/packet"
 	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"testing"
+	"time"
 )
+
 type TestHttpMessage struct {
 	Request *http.Request
-	Body string
+	Body    string
 }
 type TestHttpServer struct {
-	Incoming chan TestHttpMessage
+	Incoming    chan TestHttpMessage
 	ReturnError bool
 }
 
@@ -32,7 +33,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 	} else {
 		hts.Incoming <- TestHttpMessage{
 			Request: req,
-			Body: string(bytes),
+			Body:    string(bytes),
 		}
 		res.Write(([]byte)("OK"))
 	}
@@ -40,7 +41,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 
 func TestElasticsearchHttpOutput(t *testing.T) {
 	testHttpServer := TestHttpServer{
-		Incoming: make(chan TestHttpMessage, 1),
+		Incoming:    make(chan TestHttpMessage, 1),
 		ReturnError: false,
 	}
 	s := &http.Server{
@@ -66,33 +67,33 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 	Convey("Ensure we can send syslog packets", t, func() {
 		now := time.Now()
 		p := syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Time: now,
-				Hostname: "localhost", 
-				Tag: "HttpSyslogChannelTest", 
-				Message: "Test Message",
-			}
+			Severity: 0,
+			Facility: 0,
+			Time:     now,
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Test Message",
+		}
 		syslog.Packets() <- p
 		select {
 		case message := <-testHttpServer.Incoming:
-			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic " + base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
+			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
-		
+
 	})
 	Convey("Ensure we receive an error sending to a erroring endpoint", t, func() {
 		testHttpServer.ReturnError = true
 		syslog.Packets() <- syslog2.Packet{
-				Severity: 0, 
-				Facility: 0,
-				Time: time.Now(), 
-				Hostname: "localhost", 
-				Tag: "HttpSyslogChannelTest", 
-				Message: "Failed Message That Shouldn't Happen",
-			}
+			Severity: 0,
+			Facility: 0,
+			Time:     time.Now(),
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Failed Message That Shouldn't Happen",
+		}
 		select {
 		case <-testHttpServer.Incoming:
 			log.Fatal("No message should have been received from incoming...")
@@ -110,18 +111,18 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		So(syslog.Dial(), ShouldBeNil)
 		now := time.Now()
 		p := syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Time: now,
-				Hostname: "localhost", 
-				Tag: "HttpSyslogChannelTest", 
-				Message: "Test Message",
-			}
+			Severity: 0,
+			Facility: 0,
+			Time:     now,
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Test Message",
+		}
 		syslog.Packets() <- p
 		select {
 		case message := <-testHttpServer.Incoming:
-			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey " + base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
+			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
@@ -134,18 +135,18 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		So(syslog.Dial(), ShouldBeNil)
 		now := time.Now()
 		p := syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Time: now,
-				Hostname: "localhost", 
-				Tag: "HttpSyslogChannelTest", 
-				Message: "Test Message",
-			}
+			Severity: 0,
+			Facility: 0,
+			Time:     now,
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Test Message",
+		}
 		syslog.Packets() <- p
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
-			So(message.Body, ShouldEqual,  "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(packet.Rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n" )
+			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}

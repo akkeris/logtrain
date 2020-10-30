@@ -3,12 +3,12 @@ package output
 import (
 	"errors"
 	elasticsearch "github.com/akkeris/logtrain/pkg/output/elasticsearch"
-	syslog 		"github.com/papertrail/remote_syslog2/syslog"
-	syslogtls	"github.com/akkeris/logtrain/pkg/output/syslogtls"
-	syslogtcp	"github.com/akkeris/logtrain/pkg/output/syslogtcp"
-	syslogudp	"github.com/akkeris/logtrain/pkg/output/syslogudp"
-	sysloghttp	"github.com/akkeris/logtrain/pkg/output/sysloghttp"
-	http 		"github.com/akkeris/logtrain/pkg/output/http"
+	http "github.com/akkeris/logtrain/pkg/output/http"
+	sysloghttp "github.com/akkeris/logtrain/pkg/output/sysloghttp"
+	syslogtcp "github.com/akkeris/logtrain/pkg/output/syslogtcp"
+	syslogtls "github.com/akkeris/logtrain/pkg/output/syslogtls"
+	syslogudp "github.com/akkeris/logtrain/pkg/output/syslogudp"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
 )
 
 type Output interface {
@@ -26,7 +26,7 @@ func TestEndpoint(endpoint string) error {
 		syslogudp.Test(endpoint) == false &&
 		sysloghttp.Test(endpoint) == false &&
 		http.Test(endpoint) == false {
-			return errors.New("Unrecognized schema type")
+		return errors.New("Unrecognized schema type")
 	}
 	return nil
 }

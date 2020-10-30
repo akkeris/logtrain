@@ -1,16 +1,16 @@
 package storage
 
 import (
-	"os"
-	"strings"
-	"time"
 	apps "k8s.io/api/apps/v1"
+	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"os"
+	"strings"
+	"time"
 )
 
 const AkkerisAppLabelKey = "akkeris.io/app-name"
@@ -21,11 +21,11 @@ const TagAnnotationKey = "logtrain.akkeris.io/tag"
 
 type KubernetesDataSource struct {
 	useAkkerisHosts bool
-	stop chan struct{}
-	kube kubernetes.Interface
-	add chan LogRoute
-	remove chan LogRoute
-	routes []LogRoute
+	stop            chan struct{}
+	kube            kubernetes.Interface
+	add             chan LogRoute
+	remove          chan LogRoute
+	routes          []LogRoute
 }
 
 func GetHostNameFromTLO(kube kubernetes.Interface, obj api.Object, useAkkerisHosts bool) string {
@@ -93,11 +93,11 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 	rest := kube.CoreV1().RESTClient()
 	kds := KubernetesDataSource{
 		useAkkerisHosts: useAkkeris,
-		stop: make(chan struct{}, 1),
-		kube: kube,
-		add: make(chan LogRoute, 1),
-		remove: make(chan LogRoute, 1),
-		routes: make([]LogRoute, 0),
+		stop:            make(chan struct{}, 1),
+		kube:            kube,
+		add:             make(chan LogRoute, 1),
+		remove:          make(chan LogRoute, 1),
+		routes:          make([]LogRoute, 0),
 	}
 
 	// Watch replicasets
@@ -109,16 +109,15 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		return kube.AppsV1().ReplicaSets(api.NamespaceAll).Watch(api.ListOptions{})
 	}
 	_, controllerReplicaSets := cache.NewInformer(
-		listWatchReplicaSets, 
+		listWatchReplicaSets,
 		&apps.ReplicaSet{},
-		time.Second*0, 
+		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: kds.addRouteFromObj,
+			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
 		},
 	)
 	go controllerReplicaSets.Run(kds.stop)
-
 
 	// Watch deployments
 	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
@@ -129,16 +128,15 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		return kube.AppsV1().Deployments(api.NamespaceAll).Watch(api.ListOptions{})
 	}
 	_, controllerDeployments := cache.NewInformer(
-		listWatchDeployments, 
+		listWatchDeployments,
 		&apps.Deployment{},
-		time.Second*0, 
+		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: kds.addRouteFromObj,
+			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
 		},
 	)
 	go controllerDeployments.Run(kds.stop)
-
 
 	// Watch daemonsets
 	listWatchDaemonSets := cache.NewListWatchFromClient(rest, "daemonsets", "", fields.Everything())
@@ -149,16 +147,15 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		return kube.AppsV1().DaemonSets(api.NamespaceAll).Watch(api.ListOptions{})
 	}
 	_, controllerDaemonSets := cache.NewInformer(
-		listWatchDaemonSets, 
+		listWatchDaemonSets,
 		&apps.DaemonSet{},
-		time.Second*0, 
+		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: kds.addRouteFromObj,
+			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
 		},
 	)
 	go controllerDaemonSets.Run(kds.stop)
-
 
 	// Watch statefulsets
 	listWatchStatefulSets := cache.NewListWatchFromClient(rest, "statefulsets", "", fields.Everything())
@@ -169,16 +166,15 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		return kube.AppsV1().StatefulSets(api.NamespaceAll).Watch(api.ListOptions{})
 	}
 	_, controllerStatefulSets := cache.NewInformer(
-		listWatchStatefulSets, 
+		listWatchStatefulSets,
 		&apps.StatefulSet{},
-		time.Second*0, 
+		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc: kds.addRouteFromObj,
+			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
 		},
 	)
 	go controllerStatefulSets.Run(kds.stop)
-
 
 	return &kds, nil
 }

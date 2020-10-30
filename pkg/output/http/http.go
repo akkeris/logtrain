@@ -3,24 +3,25 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"github.com/akkeris/logtrain/pkg/output/packet"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
 	"strings"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
-	"github.com/akkeris/logtrain/pkg/output/packet"
 )
 
 type Syslog struct {
-	url url.URL
+	url      url.URL
 	endpoint string
-	client *http.Client
-	packets chan syslog.Packet
-	errors chan error
-	stop chan struct{}
-	closed bool
+	client   *http.Client
+	packets  chan syslog.Packet
+	errors   chan error
+	stop     chan struct{}
+	closed   bool
 }
 
 var syslogSchemas = []string{"https://", "http://"}
+
 const MaxLogSize int = 99990
 
 func Test(endpoint string) bool {
@@ -38,16 +39,16 @@ func Create(endpoint string) (*Syslog, error) {
 	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, err;
+		return nil, err
 	}
-	return &Syslog {
+	return &Syslog{
 		endpoint: endpoint,
-		url: *u,
-		client: &http.Client{},
-		packets: make(chan syslog.Packet, 10),
-		errors: make(chan error, 1),
-		stop: make(chan struct{}, 1),
-		closed: false,
+		url:      *u,
+		client:   &http.Client{},
+		packets:  make(chan syslog.Packet, 10),
+		errors:   make(chan error, 1),
+		stop:     make(chan struct{}, 1),
+		closed:   false,
 	}, nil
 }
 
@@ -65,10 +66,10 @@ func (log *Syslog) Close() error {
 func (log *Syslog) Pools() bool {
 	return true
 }
-func (log *Syslog) Packets() (chan syslog.Packet) {
+func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
-func (log *Syslog) Errors() (chan error) {
+func (log *Syslog) Errors() chan error {
 	return log.errors
 }
 func (log *Syslog) loop() {
@@ -85,7 +86,7 @@ func (log *Syslog) loop() {
 					log.errors <- err
 				} else {
 					resp.Body.Close()
-					if (resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK) {
+					if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
 						log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
 					}
 				}
@@ -94,7 +95,7 @@ func (log *Syslog) loop() {
 			}
 		case <-log.stop:
 			close(log.stop)
-			return;
+			return
 		}
 	}
 }

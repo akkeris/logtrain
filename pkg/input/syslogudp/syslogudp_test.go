@@ -1,11 +1,11 @@
 package syslogudp
 
 import (
+	syslog "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"log"
 	"testing"
 	"time"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
 )
 
 func TestSyslogTcpInput(t *testing.T) {
@@ -13,7 +13,7 @@ func TestSyslogTcpInput(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	Convey("Ensure nothing blows up on the stubs", t, func() {
 		So(server.Dial(), ShouldBeNil)
 		So(server.Dial(), ShouldNotBeNil)
@@ -22,12 +22,12 @@ func TestSyslogTcpInput(t *testing.T) {
 
 	Convey("Ensure we can receive messages via the http syslog stream payload", t, func() {
 		p := syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"web",
-			Hostname:"name-namespace", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "web",
+			Hostname: "name-namespace",
+			Time:     time.Now(),
 		}
 		logger, err := syslog.Dial("test", "udp", "0.0.0.0:9004", nil, time.Second, time.Second, 1024)
 		if err != nil {
@@ -44,7 +44,7 @@ func TestSyslogTcpInput(t *testing.T) {
 		logger.Write(p)
 		select {
 		case message := <-server.Packets():
-			So(p.Message , ShouldEqual, message.Message)
+			So(p.Message, ShouldEqual, message.Message)
 			So(p.Tag, ShouldEqual, message.Tag)
 			So(p.Hostname, ShouldEqual, message.Hostname)
 			So(p.Severity, ShouldEqual, message.Severity)

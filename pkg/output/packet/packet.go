@@ -3,9 +3,9 @@ package packet
 import (
 	"encoding/json"
 	"errors"
+	"github.com/papertrail/remote_syslog2/syslog"
 	"strconv"
 	"time"
-	"github.com/papertrail/remote_syslog2/syslog"
 )
 
 type Packet struct {
@@ -15,14 +15,14 @@ type Packet struct {
 const Rfc5424time = "2006-01-02T15:04:05.999999Z07:00"
 
 func (p Packet) MarshalJSON() ([]byte, error) {
-    return ([]byte)("{" + 
-    	"\"severity\":" + strconv.Itoa(int(p.Severity)) + "," +
-    	"\"facility\":" + strconv.Itoa(int(p.Facility)) + "," +
-    	"\"hostname\":\"" + p.Hostname + "\"," +
-    	"\"tag\":\"" + p.Tag + "\"," +
-    	"\"time\":\"" + p.Time.Format(Rfc5424time) + "\"," +
-    	"\"message\":\"" + p.Message + "\"" +
-    "}"), nil
+	return ([]byte)("{" +
+		"\"severity\":" + strconv.Itoa(int(p.Severity)) + "," +
+		"\"facility\":" + strconv.Itoa(int(p.Facility)) + "," +
+		"\"hostname\":\"" + p.Hostname + "\"," +
+		"\"tag\":\"" + p.Tag + "\"," +
+		"\"time\":\"" + p.Time.Format(Rfc5424time) + "\"," +
+		"\"message\":\"" + p.Message + "\"" +
+		"}"), nil
 }
 
 func (p *Packet) UnmarshalJSON(b []byte) error {
@@ -33,7 +33,7 @@ func (p *Packet) UnmarshalJSON(b []byte) error {
 
 	sev, ok := payload["severity"].(float64)
 	if ok == false {
-		sev = 0	
+		sev = 0
 	}
 	fac, ok := payload["facility"].(float64)
 	if ok == false {
@@ -47,7 +47,7 @@ func (p *Packet) UnmarshalJSON(b []byte) error {
 	if ok == false {
 		return errors.New("Tag could not be cast to a string.")
 	}
-	
+
 	ti, ok := payload["time"].(string)
 	if ok == false {
 		ti = time.Now().Format(Rfc5424time)

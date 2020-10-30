@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"log"
 	//"hash/crc32"
+	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
-	"strconv"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
 )
 
 type TestHttpServer struct {
-	Incoming chan string
+	Incoming    chan string
 	ReturnError bool
 }
 
@@ -37,12 +37,12 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 
 type SudoSyslogServerMessage struct {
 	Connection int
-	Message string
+	Message    string
 }
 
 type SudoSyslogServer struct {
 	listener net.Listener
-	stop chan struct{}
+	stop     chan struct{}
 	Received chan SudoSyslogServerMessage
 }
 
@@ -75,10 +75,10 @@ func (server *SudoSyslogServer) Listen() {
 					return
 				}
 				b := buffer.Bytes()
-				if len(b) > 0 && b[len(b) - 1] == '\n' {
+				if len(b) > 0 && b[len(b)-1] == '\n' {
 					server.Received <- SudoSyslogServerMessage{
 						Connection: connIndex,
-						Message:string(b),
+						Message:    string(b),
 					}
 					buffer = bytes.NewBuffer([]byte{})
 				}
@@ -98,13 +98,13 @@ func (server *SudoSyslogServer) Close() {
 }
 
 func CreateSudoSyslogServer(port string) (*SudoSyslogServer, error) {
-	listener, err := net.Listen("tcp", "0.0.0.0:" + port)
+	listener, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		return nil, err
 	}
 	return &SudoSyslogServer{
 		listener: listener,
-		stop: make(chan struct{}, 1),
+		stop:     make(chan struct{}, 1),
 		Received: make(chan SudoSyslogServerMessage, 100),
 	}, nil
 }
@@ -142,32 +142,32 @@ func TestDrains(t *testing.T) {
 		So(drain.Sent(), ShouldEqual, 0)
 		go func() {
 			for i := 0; i < testAmount; i++ {
-				drain.Input <-syslog2.Packet{
-					Severity: 0, 
-					Facility: 0, 
-					Time: time.Now(),
-					Hostname: "localhost", 
-					Tag: "HttpSyslogChannelTest" + strconv.Itoa(i % connections), 
-					Message: "Test Message " + strconv.Itoa(i),
+				drain.Input <- syslog2.Packet{
+					Severity: 0,
+					Facility: 0,
+					Time:     time.Now(),
+					Hostname: "localhost",
+					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i%connections),
+					Message:  "Test Message " + strconv.Itoa(i),
 				}
 			}
 		}()
 		var received = 0
 		for {
 			if received == testAmount {
-				break;
+				break
 			}
 			select {
 			case message := <-server.Received:
 				// Perform the same hash as the drain and ensure the connection id matches the hash.
 				// messages may arrive out of order, so we'll grab the order id as the second to last byte in the message
-				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message) - 2]}))
+				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message)-2]}))
 				So(err, ShouldBeNil)
 				// TODO: why is this failing?
 				//h := int(crc32.ChecksumIEEE([]byte("localhost" + "HttpSyslogChannelTest" + strconv.Itoa(order % connections))))
 				//So(message.Connection, ShouldEqual, uint32(h % connections))
-				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest" + strconv.Itoa(order % connections))
-				So(message.Message, ShouldContainSubstring, "Test Message " + strconv.Itoa(order))
+				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest"+strconv.Itoa(order%connections))
+				So(message.Message, ShouldContainSubstring, "Test Message "+strconv.Itoa(order))
 				received++
 			}
 		}
@@ -186,13 +186,13 @@ func TestDrains(t *testing.T) {
 		drain.connect()
 		go func() {
 			for i := 0; i < testAmount; i++ {
-				drain.Input <-syslog2.Packet{
-					Severity: 0, 
-					Facility: 0, 
-					Time: time.Now(),
-					Hostname: "localhost", 
-					Tag: "HttpSyslogChannelTest" + strconv.Itoa(i % connections), 
-					Message: "Test Message " + strconv.Itoa(i),
+				drain.Input <- syslog2.Packet{
+					Severity: 0,
+					Facility: 0,
+					Time:     time.Now(),
+					Hostname: "localhost",
+					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i%connections),
+					Message:  "Test Message " + strconv.Itoa(i),
 				}
 			}
 		}()
@@ -200,17 +200,17 @@ func TestDrains(t *testing.T) {
 		var received = 0
 		for {
 			if received == testAmount {
-				break;
+				break
 			}
 			select {
 			case message := <-server.Received:
 				// messages may arrive out of order, so we'll grab the order id as the second to last byte in the message
-				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message) - 2]}))
+				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message)-2]}))
 				So(err, ShouldBeNil)
 				// TODO: why is this failing?
 				//So(message.Connection, ShouldEqual, (order + 1) % connections)
-				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest" + strconv.Itoa(order % connections))
-				So(message.Message, ShouldContainSubstring, "Test Message " + strconv.Itoa(order))
+				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest"+strconv.Itoa(order%connections))
+				So(message.Message, ShouldContainSubstring, "Test Message "+strconv.Itoa(order))
 				received++
 			}
 		}
@@ -218,7 +218,7 @@ func TestDrains(t *testing.T) {
 	})
 	Convey("Ensure drain with transport specific pooling works", t, func() {
 		testHttpServer := TestHttpServer{
-			Incoming: make(chan string, 1),
+			Incoming:    make(chan string, 1),
 			ReturnError: false,
 		}
 		s := &http.Server{
@@ -236,13 +236,13 @@ func TestDrains(t *testing.T) {
 		So(drain.Dial(), ShouldBeNil)
 		go func() {
 			for i := 0; i < testAmount; i++ {
-				drain.Input <-syslog2.Packet{
-					Severity: 0, 
-					Facility: 0, 
-					Time: time.Now(),
-					Hostname: "localhost", 
-					Tag: "HttpSyslogChannelTest" + strconv.Itoa(i), 
-					Message: "Test Message " + strconv.Itoa(i),
+				drain.Input <- syslog2.Packet{
+					Severity: 0,
+					Facility: 0,
+					Time:     time.Now(),
+					Hostname: "localhost",
+					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i),
+					Message:  "Test Message " + strconv.Itoa(i),
 				}
 			}
 		}()
@@ -250,7 +250,7 @@ func TestDrains(t *testing.T) {
 		var received = 0
 		for {
 			if received == testAmount {
-				break;
+				break
 			}
 			select {
 			case <-testHttpServer.Incoming:

@@ -1,64 +1,62 @@
 package kubernetes
 
 import (
-    "encoding/json"
-    "errors"
-    "log"
-    "io"
-    "os"
-    "regexp"
-    "sync"
-    "strings"
-    "time"
-    "path/filepath"
-    "github.com/fsnotify/fsnotify"
-    "github.com/akkeris/logtrain/internal/storage"
-	"github.com/trevorlinton/go-tail/follower"
+	"encoding/json"
+	"errors"
+	"github.com/akkeris/logtrain/internal/storage"
+	"github.com/fsnotify/fsnotify"
 	"github.com/papertrail/remote_syslog2/syslog"
+	"github.com/trevorlinton/go-tail/follower"
+	"io"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"log"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
 )
 
 const kubeTime = "2006-01-02T15:04:05.000000000Z"
 
 type kubeLine struct {
-	Log string `json:"log"`
+	Log    string `json:"log"`
 	Stream string `json:"stream"`
-	Time string `json:"time"`
+	Time   string `json:"time"`
 }
 
 type kubeDetails struct {
 	Container string
-	DockerId string
+	DockerId  string
 	Namespace string
-	Pod string
+	Pod       string
 }
 
 type fileWatcher struct {
-	errors uint32
+	errors   uint32
 	follower *follower.Follower
 	hostname string
-	stop chan struct{}
-	tag string
+	stop     chan struct{}
+	tag      string
 }
-
 
 type hostnameAndTag struct {
 	Hostname string
-	Tag string
+	Tag      string
 }
 
 type Kubernetes struct {
-	kube kubernetes.Interface
-	closing bool
-	errors chan error
-	followers map[string]fileWatcher
+	kube           kubernetes.Interface
+	closing        bool
+	errors         chan error
+	followers      map[string]fileWatcher
 	followersMutex sync.Mutex
-	packets chan syslog.Packet
-	path string
-	watcher *fsnotify.Watcher
+	packets        chan syslog.Packet
+	path           string
+	watcher        *fsnotify.Watcher
 }
-
 
 func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, error) {
 	refs := obj.GetOwnerReferences()
@@ -106,12 +104,12 @@ func deriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts 
 		}
 		return &hostnameAndTag{
 			Hostname: appAndDyno[0] + "-" + podNamespace,
-			Tag: appAndDyno[1] + "." + podId,
+			Tag:      appAndDyno[1] + "." + podId,
 		}
 	}
 	return &hostnameAndTag{
 		Hostname: strings.Join(parts[:len(parts)-2], "-") + "." + podNamespace,
-		Tag: podName,
+		Tag:      podName,
 	}
 }
 
@@ -135,18 +133,18 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 		if tag, ok := top.GetAnnotations()[storage.TagAnnotationKey]; ok {
 			return &hostnameAndTag{
 				Hostname: host,
-				Tag: tag,
+				Tag:      tag,
 			}
 		} else {
 			if useAkkerisHosts == true {
 				return &hostnameAndTag{
 					Hostname: host,
-					Tag: akkerisGetTag(parts),
+					Tag:      akkerisGetTag(parts),
 				}
 			} else {
 				return &hostnameAndTag{
 					Hostname: host,
-					Tag: top.GetName(),
+					Tag:      top.GetName(),
 				}
 			}
 		}
@@ -158,36 +156,36 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 			podId := strings.Join(parts[len(parts)-2:], "-")
 			return &hostnameAndTag{
 				Hostname: appName + "-" + obj.GetNamespace(),
-				Tag: dynoType + "." + podId,
+				Tag:      dynoType + "." + podId,
 			}
 		}
 		return &hostnameAndTag{
 			Hostname: top.GetName() + "-" + obj.GetNamespace(),
-			Tag: akkerisGetTag(parts),
+			Tag:      akkerisGetTag(parts),
 		}
 	}
 	return &hostnameAndTag{
 		Hostname: top.GetName() + "." + obj.GetNamespace(),
-		Tag: obj.GetName(),
+		Tag:      obj.GetName(),
 	}
 }
 
 func dir(root string) []string {
-    var files []string
-    err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-        if(info.IsDir() == false) {
-            files = append(files, path)
-        }
-        return nil
-    })
-    if err != nil {
-        panic(err)
-    }
-    return files
+	var files []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() == false {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	return files
 }
 
 func (handler *Kubernetes) Close() error {
-	handler.closing = true 
+	handler.closing = true
 	handler.watcher.Close()
 	for _, v := range handler.followers {
 		v.follower.Close()
@@ -202,7 +200,7 @@ func (handler *Kubernetes) Dial() error {
 		return errors.New("Dial may only be called once.")
 	}
 	for _, file := range dir(handler.path) {
-		/* Seek the end of the file if we've just started, 
+		/* Seek the end of the file if we've just started,
 		 * if say we're erroring and restarting frequently we
 		 * do not want to start from the beginning of the log file
 		 * and rebroadcast the entire log contents
@@ -217,11 +215,11 @@ func (handler *Kubernetes) Dial() error {
 	return nil
 }
 
-func (handler *Kubernetes) Errors() (chan error) {
+func (handler *Kubernetes) Errors() chan error {
 	return handler.errors
 }
 
-func (handler *Kubernetes) Packets() (chan syslog.Packet) {
+func (handler *Kubernetes) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
@@ -239,9 +237,9 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 		}
 		return &kubeDetails{
 			Container: parts[0][6],
-			DockerId: parts[0][7],
+			DockerId:  parts[0][7],
 			Namespace: parts[0][5],
-			Pod: parts[0][1],
+			Pod:       parts[0][1],
 		}, nil
 	}
 	return nil, errors.New("invalid filename, no match given")
@@ -249,9 +247,9 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 
 func (handler *Kubernetes) add(file string, ioSeek int) {
 	config := follower.Config{
-		Offset:0,
-		Whence:ioSeek,
-		Reopen:true,
+		Offset: 0,
+		Whence: ioSeek,
+		Reopen: true,
 	}
 	// The filename has additional details we need.
 	details, err := kubeDetailsFromFileName(file)
@@ -274,10 +272,10 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	}
 	fw := fileWatcher{
 		follower: proc,
-		stop: make(chan struct{}, 1),
+		stop:     make(chan struct{}, 1),
 		hostname: hostAndTag.Hostname,
-		tag: hostAndTag.Tag,
-		errors: 0,
+		tag:      hostAndTag.Tag,
+		errors:   0,
 	}
 	handler.followersMutex.Lock()
 	handler.followers[file] = fw
@@ -295,10 +293,10 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 						// the entire input handler look broken. Brainstorm on this.
 						fw.errors++
 					} else {
-	    				t, err := time.Parse(kubeTime, data.Time)
-	    				if err != nil {
-	    					t = time.Now()
-	    				}
+						t, err := time.Parse(kubeTime, data.Time)
+						if err != nil {
+							t = time.Now()
+						}
 						handler.Packets() <- syslog.Packet{
 							Severity: 0,
 							Facility: 0,
@@ -367,12 +365,12 @@ func Create(logpath string, kube kubernetes.Interface) (*Kubernetes, error) {
 		logpath = "/var/log/containers"
 	}
 	return &Kubernetes{
-		kube: kube,
-		errors: make(chan error, 1),
-		packets: make(chan syslog.Packet, 100),
-		path: logpath,
-		followers: make(map[string]fileWatcher),
-		closing: false,
+		kube:           kube,
+		errors:         make(chan error, 1),
+		packets:        make(chan syslog.Packet, 100),
+		path:           logpath,
+		followers:      make(map[string]fileWatcher),
+		closing:        false,
 		followersMutex: sync.Mutex{},
 	}, nil
 }

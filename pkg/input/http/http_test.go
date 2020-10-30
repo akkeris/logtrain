@@ -2,16 +2,15 @@ package http
 
 import (
 	"encoding/json"
+	"github.com/akkeris/logtrain/pkg/output/packet"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"log"
-	"testing"
-	"time"
 	"net/http"
 	"strings"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
-	"github.com/akkeris/logtrain/pkg/output/packet"
+	"testing"
+	"time"
 )
-
 
 func TestJsonHttpOutput(t *testing.T) {
 	handler, err := Create()
@@ -36,12 +35,12 @@ func TestJsonHttpOutput(t *testing.T) {
 
 	Convey("Ensure we can receive messages via the http JSON payload", t, func() {
 		p := syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"web",
-			Hostname:"name-namespace", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "web",
+			Hostname: "name-namespace",
+			Time:     time.Now(),
 		}
 		data, err := json.Marshal(packet.Packet{p})
 		So(err, ShouldBeNil)
@@ -63,12 +62,12 @@ func TestJsonHttpOutput(t *testing.T) {
 
 	Convey("Test sending a malformed request", t, func() {
 		p := syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"web",
-			Hostname:"name-namespace", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "web",
+			Hostname: "name-namespace",
+			Time:     time.Now(),
 		}
 		data, err := json.Marshal(p) // syslog.Packet (p) is not serializable, therefore it'll generate a bad payload below.
 		So(err, ShouldBeNil)

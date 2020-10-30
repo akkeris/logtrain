@@ -1,35 +1,35 @@
 package syslogtls
 
 import (
-	"log"
-	"testing"
-	"time"
-	"crypto/tls"
-	"math/big"
-	"net"
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"encoding/base64"
-	"bytes"
-	"io"
-	. "github.com/smartystreets/goconvey/convey"
+	"encoding/pem"
 	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
+	"io"
+	"log"
+	"math/big"
+	"net"
+	"testing"
+	"time"
 )
 
 func publicKey(priv interface{}) interface{} {
 	switch k := priv.(type) {
-		case *rsa.PrivateKey:
-			return &k.PublicKey
-		case *ecdsa.PrivateKey:
-			return &k.PublicKey
-		case ed25519.PrivateKey:
-			return k.Public().(ed25519.PublicKey)
-		default:
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	case *ecdsa.PrivateKey:
+		return &k.PublicKey
+	case ed25519.PrivateKey:
+		return k.Public().(ed25519.PublicKey)
+	default:
 		return nil
 	}
 }
@@ -47,20 +47,20 @@ func CreateDummyTLSConfig() (*tls.Config, []byte) {
 	}
 	keyUsage := x509.KeyUsageDigitalSignature
 	if _, isRSA := priv.(*rsa.PrivateKey); isRSA {
-    	keyUsage |= x509.KeyUsageKeyEncipherment
-    }
+		keyUsage |= x509.KeyUsageKeyEncipherment
+	}
 	notBefore := time.Now().Add(time.Hour * -1)
 	notAfter := notBefore.Add(time.Hour * 10)
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
- 		Subject: pkix.Name{
+		Subject: pkix.Name{
 			Organization: []string{"Acme Co"},
 		},
-		DNSNames:[]string{"localhost"},
-		NotBefore: notBefore,
-		NotAfter: notAfter,
-		KeyUsage: keyUsage,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:              []string{"localhost"},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
@@ -73,8 +73,8 @@ func CreateDummyTLSConfig() (*tls.Config, []byte) {
 	}
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err := pem.Encode(keyPem, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
-   		log.Fatal(err)
-   	}
+		log.Fatal(err)
+	}
 
 	cert, err := tls.X509KeyPair(certPem.Bytes(), keyPem.Bytes())
 	if err != nil {
@@ -86,14 +86,14 @@ func CreateDummyTLSConfig() (*tls.Config, []byte) {
 		log.Fatal(err)
 	}
 	roots.AppendCertsFromPEM(certPem.Bytes())
-	cfg := &tls.Config{ Certificates: []tls.Certificate{cert}, ServerName:"localhost", ClientAuth: tls.NoClientCert, RootCAs: roots}
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}, ServerName: "localhost", ClientAuth: tls.NoClientCert, RootCAs: roots}
 	return cfg, certPem.Bytes()
 }
 
 func CreateTlsSudoSyslogServer(port string) (chan string, chan struct{}, net.Listener, []byte) {
 	channel := make(chan string, 1)
 	stop := make(chan struct{}, 1)
-	listener, err := net.Listen("tcp", "0.0.0.0:" + port)
+	listener, err := net.Listen("tcp", "0.0.0.0:"+port)
 	cfg, cert := CreateDummyTLSConfig()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -128,12 +128,12 @@ func CreateTlsSudoSyslogServer(port string) (chan string, chan struct{}, net.Lis
 					return
 				}
 				b := buffer.Bytes()
-				if len(b) > 0 && b[len(b) - 1] == '\n' {
+				if len(b) > 0 && b[len(b)-1] == '\n' {
 					channel <- string(b)
 					buffer = bytes.NewBuffer([]byte{})
 				}
 				if written == 0 {
-					break;
+					break
 				}
 			}
 			server.Close()
@@ -160,17 +160,17 @@ func TestSyslogTlsOutput(t *testing.T) {
 	Convey("Ensure we can send syslog packets", t, func() {
 		now := time.Now()
 		p := syslog2.Packet{
-			Severity: 0, 
-			Facility: 0, 
-			Time: now,
-			Hostname: "localhost", 
-			Tag: "HttpSyslogChannelTest", 
-			Message: "Test Message",
+			Severity: 0,
+			Facility: 0,
+			Time:     now,
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Test Message",
 		}
 		syslog.Packets() <- p
 		select {
 		case message := <-channel:
-			So(message, ShouldEqual, p.Generate(MaxLogSize) + "\n")
+			So(message, ShouldEqual, p.Generate(MaxLogSize)+"\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}

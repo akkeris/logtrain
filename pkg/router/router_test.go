@@ -1,16 +1,16 @@
 package router
 
 import (
+	"github.com/akkeris/logtrain/internal/storage"
+	"github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
 	"log"
 	"testing"
 	"time"
-	"github.com/akkeris/logtrain/internal/storage"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/papertrail/remote_syslog2/syslog"
 )
 
 type FakeDataSource struct {
-	add chan storage.LogRoute
+	add    chan storage.LogRoute
 	remove chan storage.LogRoute
 	routes []storage.LogRoute
 }
@@ -36,9 +36,8 @@ func (dataSource FakeDataSource) EmitRemoveRoute(route storage.LogRoute) {
 	dataSource.remove <- route
 }
 
-
 type FakeInput struct {
-	errors chan error
+	errors  chan error
 	packets chan syslog.Packet
 }
 
@@ -73,15 +72,15 @@ func TestRouter(t *testing.T) {
 	route := storage.LogRoute{
 		Endpoint: "syslog+tcp://localhost:10513/",
 		Hostname: "test-host",
-		Tag: "test-tag",
+		Tag:      "test-tag",
 	}
 	ds := FakeDataSource{
-		add: make(chan storage.LogRoute, 1),
+		add:    make(chan storage.LogRoute, 1),
 		remove: make(chan storage.LogRoute, 1),
 		routes: []storage.LogRoute{route},
 	}
 	input := FakeInput{
-		errors: make(chan error, 1),
+		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 1),
 	}
 
@@ -97,34 +96,34 @@ func TestRouter(t *testing.T) {
 
 		// send ignored packet
 		input.Packets() <- syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"test-tag",
-			Hostname:"non-existant", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "test-tag",
+			Hostname: "non-existant",
+			Time:     time.Now(),
 		}
 
 		// valid packets
 		input.Packets() <- syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Oh hello",
-			Tag:"test-tag",
-			Hostname:"test-host", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Oh hello",
+			Tag:      "test-tag",
+			Hostname: "test-host",
+			Time:     time.Now(),
 		}
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Oh hello")
 		}
 		input.Packets() <- syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Pow Pow Meow",
-			Tag:"test-tag",
-			Hostname:"test-host", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Pow Pow Meow",
+			Tag:      "test-tag",
+			Hostname: "test-host",
+			Time:     time.Now(),
 		}
 		select {
 		case message := <-server.Received:
@@ -132,12 +131,12 @@ func TestRouter(t *testing.T) {
 		}
 		ds.EmitRemoveRoute(route)
 		input.Packets() <- syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Pow Pow Meow",
-			Tag:"test-tag",
-			Hostname:"test-host", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Pow Pow Meow",
+			Tag:      "test-tag",
+			Hostname: "test-host",
+			Time:     time.Now(),
 		}
 		select {
 		case message := <-server.Received:
@@ -148,12 +147,12 @@ func TestRouter(t *testing.T) {
 		ds.EmitNewRoute(route)
 
 		input.Packets() <- syslog.Packet{
-			Severity:0,
-			Facility:0,
-			Message:"Pow Pow Wow",
-			Tag:"test-tag",
-			Hostname:"test-host", 
-			Time:time.Now(),
+			Severity: 0,
+			Facility: 0,
+			Message:  "Pow Pow Wow",
+			Tag:      "test-tag",
+			Hostname: "test-host",
+			Time:     time.Now(),
 		}
 		select {
 		case message := <-server.Received:

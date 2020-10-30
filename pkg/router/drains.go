@@ -3,10 +3,10 @@ package router
 import (
 	"errors"
 	"fmt"
-	"hash/crc32"
-	"sync"
 	"github.com/akkeris/logtrain/pkg/output"
 	"github.com/papertrail/remote_syslog2/syslog"
+	"hash/crc32"
+	"sync"
 )
 
 /*
@@ -22,24 +22,24 @@ import (
  * - Propogate up all errors, assume we're still good to go unless explicitly closed.
  */
 
-const increasePercentTrigger = 0.5 	// > 50% full.
+const increasePercentTrigger = 0.5  // > 50% full.
 const decreasePercentTrigger = 0.02 // 2% full.
-const bufferSize = 512 				// amount of records to keep in memory until upstream fails.
+const bufferSize = 512              // amount of records to keep in memory until upstream fails.
 
 type Drain struct {
-	Input chan syslog.Packet
-	Info chan string
-	Error chan error
-	endpoint string
+	Input          chan syslog.Packet
+	Info           chan string
+	Error          chan error
+	endpoint       string
 	maxconnections uint32
-	errors uint32
-	connections []output.Output
-	mutex *sync.Mutex
-	sent uint32
-	stop chan struct{}
-	pressure float64
-	open uint32
-	sticky bool
+	errors         uint32
+	connections    []output.Output
+	mutex          *sync.Mutex
+	sent           uint32
+	stop           chan struct{}
+	pressure       float64
+	open           uint32
+	sticky         bool
 	transportPools bool
 }
 
@@ -51,20 +51,20 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 		return nil, errors.New("Max connections must not be 0.")
 	}
 	drain := Drain{
-		endpoint: endpoint, 
+		endpoint:       endpoint,
 		maxconnections: maxconnections,
-		errors: 0,
-		sent: 0,
-		pressure: 0,
-		open: 0,
-		sticky: sticky,
+		errors:         0,
+		sent:           0,
+		pressure:       0,
+		open:           0,
+		sticky:         sticky,
 		transportPools: false,
-		Input: make(chan syslog.Packet, bufferSize),
-		Info: make(chan string, 1),
-		Error: make(chan error, 1),
-		connections: make([]output.Output, 0),
-		mutex: &sync.Mutex{},
-		stop: make(chan struct{}, 1),
+		Input:          make(chan syslog.Packet, bufferSize),
+		Info:           make(chan string, 1),
+		Error:          make(chan error, 1),
+		connections:    make([]output.Output, 0),
+		mutex:          &sync.Mutex{},
+		stop:           make(chan struct{}, 1),
 	}
 
 	if err := output.TestEndpoint(endpoint); err != nil {
@@ -72,7 +72,6 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 	}
 	return &drain, nil
 }
-
 
 func (drain *Drain) MaxConnections() uint32 {
 	return drain.maxconnections
@@ -156,7 +155,7 @@ func (drain *Drain) connect() error {
 			case err := <-conn.Errors():
 				drain.error(err)
 			case <-drain.stop:
-				return;
+				return
 			}
 		}
 	}()
@@ -164,7 +163,7 @@ func (drain *Drain) connect() error {
 }
 
 /*
- * The write loop functions below are critical paths, removing as much operations in these as possible 
+ * The write loop functions below are critical paths, removing as much operations in these as possible
  * is important to performance. An if statement to use a sticky or round robin
  * strategy in the drain is therefore pushed up to the Dail function, unfortuntely
  * this does mean there's some repetitive code.
@@ -177,10 +176,10 @@ func (drain *Drain) loopRoundRobin() {
 		case packet := <-drain.Input:
 			drain.mutex.Lock()
 			drain.sent++
-			drain.connections[drain.sent % drain.open].Packets() <- packet
+			drain.connections[drain.sent%drain.open].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure * 100))
+				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure*100))
 				go drain.connect()
 			}
 			drain.mutex.Unlock()
@@ -197,10 +196,10 @@ func (drain *Drain) loopSticky() {
 		case packet := <-drain.Input:
 			drain.mutex.Lock()
 			drain.sent++
-			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname + packet.Tag)) % drain.open)].Packets() <- packet
+			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure * 100))
+				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure*100))
 				go drain.connect()
 			}
 			drain.mutex.Unlock()

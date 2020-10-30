@@ -1,13 +1,13 @@
 package sysloghttp
 
 import (
-	"net/http"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
 	newline "github.com/mitchellh/go-linereader"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"net/http"
 )
 
 type HandlerHttpSyslog struct {
-	errors chan error
+	errors  chan error
 	packets chan syslog.Packet
 }
 
@@ -48,14 +48,13 @@ func (handler *HandlerHttpSyslog) Dial() error {
 	return nil
 }
 
-func (handler *HandlerHttpSyslog) Errors() (chan error) {
+func (handler *HandlerHttpSyslog) Errors() chan error {
 	return handler.errors
 }
 
-func (handler *HandlerHttpSyslog) Packets() (chan syslog.Packet) {
+func (handler *HandlerHttpSyslog) Packets() chan syslog.Packet {
 	return handler.packets
 }
-
 
 func (handler *HandlerHttpSyslog) Pools() bool {
 	return true
@@ -63,7 +62,7 @@ func (handler *HandlerHttpSyslog) Pools() bool {
 
 func Create() (*HandlerHttpSyslog, error) {
 	return &HandlerHttpSyslog{
-		errors: make(chan error, 1),
+		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
 	}, nil
 }

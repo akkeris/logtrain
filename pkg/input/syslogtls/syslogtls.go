@@ -5,22 +5,22 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"time"
 	server "github.com/mcuadros/go-syslog"
 	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"time"
 )
 
 type HandlerSyslogTls struct {
-	errors chan error
-	packets chan syslog.Packet
-	stop chan struct{}
-	channel server.LogPartsChannel
-	server *server.Server
+	errors      chan error
+	packets     chan syslog.Packet
+	stop        chan struct{}
+	channel     server.LogPartsChannel
+	server      *server.Server
 	server_name string
-	key_pem string
-	cert_pem string
-	ca_pem string
-	address string
+	key_pem     string
+	cert_pem    string
+	ca_pem      string
+	address     string
 }
 
 func (handler *HandlerSyslogTls) getServerConfig() (*tls.Config, error) {
@@ -41,15 +41,15 @@ func (handler *HandlerSyslogTls) getServerConfig() (*tls.Config, error) {
 
 	config := tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName: handler.server_name,
-		RootCAs: capool,
+		ServerName:   handler.server_name,
+		RootCAs:      capool,
 	}
 	config.Rand = rand.Reader
 	return &config, nil
 }
 
 func (handler *HandlerSyslogTls) Close() error {
-	handler.stop <-struct{}{}
+	handler.stop <- struct{}{}
 	handler.server.Kill()
 	close(handler.packets)
 	close(handler.errors)
@@ -117,9 +117,9 @@ func (handler *HandlerSyslogTls) Dial() error {
 					Severity: syslog.Priority(severity),
 					Facility: syslog.Priority(facility),
 					Hostname: hostname,
-					Tag: tag,
-					Time: timestamp,
-					Message: msg,
+					Tag:      tag,
+					Time:     timestamp,
+					Message:  msg,
 				}
 			case <-handler.stop:
 				return
@@ -129,11 +129,11 @@ func (handler *HandlerSyslogTls) Dial() error {
 	return nil
 }
 
-func (handler *HandlerSyslogTls) Errors() (chan error) {
+func (handler *HandlerSyslogTls) Errors() chan error {
 	return handler.errors
 }
 
-func (handler *HandlerSyslogTls) Packets() (chan syslog.Packet) {
+func (handler *HandlerSyslogTls) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
@@ -143,15 +143,15 @@ func (handler *HandlerSyslogTls) Pools() bool {
 
 func Create(server_name string, key_pem string, cert_pem string, ca_pem string, address string) (*HandlerSyslogTls, error) {
 	return &HandlerSyslogTls{
-		errors: make(chan error, 1),
-		packets: make(chan syslog.Packet, 100),
-		stop: make(chan struct{}, 1),
-		channel: make(server.LogPartsChannel),
-		server: nil,
+		errors:      make(chan error, 1),
+		packets:     make(chan syslog.Packet, 100),
+		stop:        make(chan struct{}, 1),
+		channel:     make(server.LogPartsChannel),
+		server:      nil,
 		server_name: server_name,
-		key_pem: key_pem,
-		cert_pem: cert_pem,
-		ca_pem: ca_pem,
-		address: address,
+		key_pem:     key_pem,
+		cert_pem:    cert_pem,
+		ca_pem:      ca_pem,
+		address:     address,
 	}, nil
 }

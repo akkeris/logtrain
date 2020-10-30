@@ -1,28 +1,28 @@
 package envoy
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+	v2data "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
+	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"google.golang.org/grpc"
 	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-	v2data "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
-	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	"google.golang.org/grpc"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
 )
 
 type EnvoyAlsServer struct {
-	address string
+	address   string
 	marshaler jsonpb.Marshaler
-	server *grpc.Server
-	errors chan error
-	packets chan syslog.Packet
+	server    *grpc.Server
+	errors    chan error
+	packets   chan syslog.Packet
 }
 
 var _ v2.AccessLogServiceServer = &EnvoyAlsServer{}
@@ -30,12 +30,12 @@ var hostTemplate = "{name}.{namespace}"
 var tag = "envoy"
 
 func stringMilliseconds(d time.Duration) string {
-	return fmt.Sprintf("%.2fms", d.Seconds() * 1000)
+	return fmt.Sprintf("%.2fms", d.Seconds()*1000)
 }
 
 func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 	var code uint32 = 0
-    if envoyMsg.CommonProperties.ResponseFlags != nil && envoyMsg.CommonProperties.ResponseFlags.DownstreamConnectionTermination {
+	if envoyMsg.CommonProperties.ResponseFlags != nil && envoyMsg.CommonProperties.ResponseFlags.DownstreamConnectionTermination {
 		code = 499
 	}
 
@@ -65,9 +65,9 @@ func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 	if err != nil {
 		ttldtxbyte = time.Millisecond
 	}
-	return "bytes=" + strconv.Itoa(int(envoyMsg.Request.RequestHeadersBytes + envoyMsg.Request.RequestBodyBytes + envoyMsg.Response.ResponseHeadersBytes + envoyMsg.Response.ResponseBodyBytes)) + " " +
-		"request_size=" + strconv.Itoa(int(envoyMsg.Request.RequestHeadersBytes + envoyMsg.Request.RequestBodyBytes)) + " " +
-		"response_size=" + strconv.Itoa(int(envoyMsg.Response.ResponseHeadersBytes + envoyMsg.Response.ResponseBodyBytes)) + " " +
+	return "bytes=" + strconv.Itoa(int(envoyMsg.Request.RequestHeadersBytes+envoyMsg.Request.RequestBodyBytes+envoyMsg.Response.ResponseHeadersBytes+envoyMsg.Response.ResponseBodyBytes)) + " " +
+		"request_size=" + strconv.Itoa(int(envoyMsg.Request.RequestHeadersBytes+envoyMsg.Request.RequestBodyBytes)) + " " +
+		"response_size=" + strconv.Itoa(int(envoyMsg.Response.ResponseHeadersBytes+envoyMsg.Response.ResponseBodyBytes)) + " " +
 		"method=" + envoyMsg.Request.RequestMethod.String() + " " +
 		"request_id=" + envoyMsg.Request.RequestId + " " +
 		"fwd=" + envoyMsg.Request.ForwardedFor + " " +
@@ -114,9 +114,9 @@ func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAcces
 					Severity: 0,
 					Facility: 0,
 					Hostname: hostname,
-					Time: t,
-					Tag: tag,
-					Message: layout(entry),
+					Time:     t,
+					Tag:      tag,
+					Message:  layout(entry),
 				}
 			}
 		}
@@ -127,11 +127,11 @@ func (s *EnvoyAlsServer) Pools() bool {
 	return true
 }
 
-func (s *EnvoyAlsServer) Packets() (chan syslog.Packet) {
+func (s *EnvoyAlsServer) Packets() chan syslog.Packet {
 	return s.packets
 }
 
-func (s *EnvoyAlsServer) Errors() (chan error) {
+func (s *EnvoyAlsServer) Errors() chan error {
 	return s.errors
 }
 
@@ -159,8 +159,8 @@ func Create(address string) (*EnvoyAlsServer, error) {
 	}
 	return &EnvoyAlsServer{
 		address: address,
-		server: nil,
+		server:  nil,
 		packets: make(chan syslog.Packet, 100),
-		errors: make(chan error, 1),
+		errors:  make(chan error, 1),
 	}, nil
 }

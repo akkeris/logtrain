@@ -1,12 +1,12 @@
 package syslogtcp
 
 import (
+	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	. "github.com/smartystreets/goconvey/convey"
+	syslogserver "gopkg.in/mcuadros/go-syslog.v2"
 	"log"
 	"testing"
 	"time"
-	. "github.com/smartystreets/goconvey/convey"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
-	syslogserver "gopkg.in/mcuadros/go-syslog.v2"
 )
 
 func CreateTCPSyslogServer(port string) (syslogserver.LogPartsChannel, *syslogserver.Server) {
@@ -41,13 +41,13 @@ func TestSyslogTcpOutput(t *testing.T) {
 		})
 		now := time.Now()
 		p := syslog2.Packet{
-				Severity: 0, 
-				Facility: 0, 
-				Time: now,
-				Hostname: "localhost", 
-				Tag: "HttpSyslogChannelTest", 
-				Message: "Test Message",
-			}
+			Severity: 0,
+			Facility: 0,
+			Time:     now,
+			Hostname: "localhost",
+			Tag:      "HttpSyslogChannelTest",
+			Message:  "Test Message",
+		}
 		syslog.Packets() <- p
 		select {
 		case message := <-channel:
@@ -59,35 +59,35 @@ func TestSyslogTcpOutput(t *testing.T) {
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
-		
+
 		So(server.Kill(), ShouldBeNil)
 	})
 	/*
-	 * This does not yet work, the test implementation (gopkg.in/mcuadros/go-syslog.v2)
-	 * does not shutdown when we issue a server.Kill(), the logging drain can still
-	 * forward to it, until we get a different reference impl this will be broken.
-	Convey("Ensure we receive an error sending to a erroring endpoint", t, func() {
-		var testError error = nil
-		go func() {
-			select {
-			case error := <-syslog.Errors():
-				testError = error
+		 * This does not yet work, the test implementation (gopkg.in/mcuadros/go-syslog.v2)
+		 * does not shutdown when we issue a server.Kill(), the logging drain can still
+		 * forward to it, until we get a different reference impl this will be broken.
+		Convey("Ensure we receive an error sending to a erroring endpoint", t, func() {
+			var testError error = nil
+			go func() {
+				select {
+				case error := <-syslog.Errors():
+					testError = error
+				}
+			}()
+
+			<-time.NewTimer(time.Second).C
+			syslog.Packets() <- syslog2.Packet{
+				Severity: 0,
+				Facility: 0,
+				Time: time.Now(),
+				Hostname: "localhost",
+				Tag: "HttpSyslogChannelTest",
+				Message: "Failed Message That Shouldn't Happen",
 			}
-		}()
 
-		<-time.NewTimer(time.Second).C
-		syslog.Packets() <- syslog2.Packet{
-			Severity: 0, 
-			Facility: 0,
-			Time: time.Now(), 
-			Hostname: "localhost", 
-			Tag: "HttpSyslogChannelTest", 
-			Message: "Failed Message That Shouldn't Happen",
-		}
-
-		<-time.NewTimer(time.Second).C
-		So(testError, ShouldNotBeNil)
-	})
+			<-time.NewTimer(time.Second).C
+			So(testError, ShouldNotBeNil)
+		})
 	*/
 	Convey("Ensure we can close a syslog end point...", t, func() {
 		So(syslog.Close(), ShouldBeNil)

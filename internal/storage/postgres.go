@@ -1,7 +1,7 @@
 package storage
 
 type PostgresDataSource struct {
-	add chan LogRoute
+	add    chan LogRoute
 	remove chan LogRoute
 	routes []LogRoute
 }
@@ -20,7 +20,7 @@ func (pds *PostgresDataSource) GetAllRoutes() ([]LogRoute, error) {
 
 func CreatePostgresDataSource() (*PostgresDataSource, error) {
 	return &PostgresDataSource{
-		add: make(chan LogRoute, 1),
+		add:    make(chan LogRoute, 1),
 		remove: make(chan LogRoute, 1),
 		routes: make([]LogRoute, 0),
 	}, nil

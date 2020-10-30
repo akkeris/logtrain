@@ -2,19 +2,18 @@ package envoy
 
 import (
 	"context"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v2data "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	"github.com/golang/protobuf/ptypes"
+	. "github.com/smartystreets/goconvey/convey"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"io"
 	"log"
 	"testing"
 	"time"
-	. "github.com/smartystreets/goconvey/convey"
-	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	v2data "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
-	grpc "google.golang.org/grpc"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
-
 
 func TestEnvoyGrpcInput(t *testing.T) {
 	var envoy *EnvoyAlsServer = nil
@@ -44,40 +43,38 @@ func TestEnvoyGrpcInput(t *testing.T) {
 		// https://github.com/envoyproxy/envoy/blob/82e7109c73799197075654808f05c3aab33d2f2b/api/envoy/service/accesslog/v2/als.proto#L36
 		message := &v2.StreamAccessLogsMessage{
 			Identifier: &v2.StreamAccessLogsMessage_Identifier{
-				Node: &core.Node{
-				},
+				Node:    &core.Node{},
 				LogName: "test",
 			},
 			LogEntries: &v2.StreamAccessLogsMessage_HttpLogs{
 				HttpLogs: &v2.StreamAccessLogsMessage_HTTPAccessLogEntries{
-					LogEntry:[]*v2data.HTTPAccessLogEntry{
+					LogEntry: []*v2data.HTTPAccessLogEntry{
 						&v2data.HTTPAccessLogEntry{
 							CommonProperties: &v2data.AccessLogCommon{
-								TimeToLastUpstreamTxByte:ptypes.DurationProto(time.Second),
-								TimeToLastUpstreamRxByte:ptypes.DurationProto(time.Second),
-								TimeToLastDownstreamTxByte:ptypes.DurationProto(time.Second),
-								UpstreamCluster: "|||name.namespace",
-								TlsProperties:&v2data.TLSProperties{
-									TlsVersion: v2data.TLSProperties_TLSv1_2,
+								TimeToLastUpstreamTxByte:   ptypes.DurationProto(time.Second),
+								TimeToLastUpstreamRxByte:   ptypes.DurationProto(time.Second),
+								TimeToLastDownstreamTxByte: ptypes.DurationProto(time.Second),
+								UpstreamCluster:            "|||name.namespace",
+								TlsProperties: &v2data.TLSProperties{
+									TlsVersion:     v2data.TLSProperties_TLSv1_2,
 									TlsSniHostname: "www.example.com",
 								},
 							},
 							ProtocolVersion: v2data.HTTPAccessLogEntry_HTTP2,
 							Request: &v2data.HTTPRequestProperties{
-								RequestMethod: core.RequestMethod_POST,
-								Authority:"authority",
-								ForwardedFor:"1.1.1.1",
-								RequestId:"x-request-id",
-								RequestBodyBytes:100,
-								RequestHeadersBytes:200,
+								RequestMethod:       core.RequestMethod_POST,
+								Authority:           "authority",
+								ForwardedFor:        "1.1.1.1",
+								RequestId:           "x-request-id",
+								RequestBodyBytes:    100,
+								RequestHeadersBytes: 200,
 							},
 							Response: &v2data.HTTPResponseProperties{
 								ResponseCode: &wrapperspb.UInt32Value{
 									Value: 200,
 								},
-								ResponseBodyBytes:200,
-								ResponseHeadersBytes:100,
-
+								ResponseBodyBytes:    200,
+								ResponseHeadersBytes: 100,
 							},
 						},
 					},

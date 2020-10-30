@@ -2,22 +2,22 @@ package syslogudp
 
 import (
 	"errors"
-	"time"
 	server "github.com/mcuadros/go-syslog"
 	syslog "github.com/papertrail/remote_syslog2/syslog"
+	"time"
 )
 
 type HandlerSyslogUdp struct {
-	errors chan error
+	errors  chan error
 	packets chan syslog.Packet
-	stop chan struct{}
+	stop    chan struct{}
 	channel server.LogPartsChannel
-	server *server.Server
+	server  *server.Server
 	address string
 }
 
 func (handler *HandlerSyslogUdp) Close() error {
-	handler.stop <-struct{}{}
+	handler.stop <- struct{}{}
 	handler.server.Kill()
 	close(handler.packets)
 	close(handler.errors)
@@ -30,7 +30,7 @@ func (handler *HandlerSyslogUdp) Dial() error {
 	if handler.server != nil {
 		return errors.New("Dial may only be called once.")
 	}
-	
+
 	handler.server = server.NewServer()
 	handler.server.SetFormat(server.RFC6587)
 	handler.server.SetHandler(server.NewChannelHandler(handler.channel))
@@ -72,9 +72,9 @@ func (handler *HandlerSyslogUdp) Dial() error {
 					Severity: syslog.Priority(severity),
 					Facility: syslog.Priority(facility),
 					Hostname: hostname,
-					Tag: tag,
-					Time: timestamp,
-					Message: msg,
+					Tag:      tag,
+					Time:     timestamp,
+					Message:  msg,
 				}
 			case <-handler.stop:
 				return
@@ -84,11 +84,11 @@ func (handler *HandlerSyslogUdp) Dial() error {
 	return nil
 }
 
-func (handler *HandlerSyslogUdp) Errors() (chan error) {
+func (handler *HandlerSyslogUdp) Errors() chan error {
 	return handler.errors
 }
 
-func (handler *HandlerSyslogUdp) Packets() (chan syslog.Packet) {
+func (handler *HandlerSyslogUdp) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
@@ -98,11 +98,11 @@ func (handler *HandlerSyslogUdp) Pools() bool {
 
 func Create(address string) (*HandlerSyslogUdp, error) {
 	return &HandlerSyslogUdp{
-		errors: make(chan error, 1),
+		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
-		stop: make(chan struct{}, 1),
+		stop:    make(chan struct{}, 1),
 		channel: make(server.LogPartsChannel),
-		server: nil,
+		server:  nil,
 		address: address,
 	}, nil
 }

@@ -1,8 +1,8 @@
 package output
 
 import (
-	"testing"
 	. "github.com/smartystreets/goconvey/convey"
+	"testing"
 )
 
 func TestOutput(t *testing.T) {
