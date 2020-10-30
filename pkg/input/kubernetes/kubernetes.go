@@ -8,6 +8,7 @@ import (
     "os"
     "regexp"
     "sync"
+    "strings"
     "time"
     "path/filepath"
     "github.com/fsnotify/fsnotify"
@@ -41,6 +42,12 @@ type fileWatcher struct {
 	tag string
 }
 
+
+type hostnameAndTag struct {
+	Hostname string
+	Tag string
+}
+
 type Kubernetes struct {
 	kube kubernetes.Interface
 	closing bool
@@ -50,6 +57,119 @@ type Kubernetes struct {
 	packets chan syslog.Packet
 	path string
 	watcher *fsnotify.Watcher
+}
+
+
+func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, error) {
+	refs := obj.GetOwnerReferences()
+	for _, ref := range refs {
+		if ref.Controller == nil || *ref.Controller == false {
+			if strings.ToLower(ref.Kind) == "replicaset" || strings.ToLower(ref.Kind) == "replicasets" {
+				nObj, err := kube.AppsV1().ReplicaSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "deployment" || strings.ToLower(ref.Kind) == "deployments" {
+				nObj, err := kube.AppsV1().Deployments(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "daemonset" || strings.ToLower(ref.Kind) == "daemonsets" {
+				nObj, err := kube.AppsV1().DaemonSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else if strings.ToLower(ref.Kind) == "statefulset" || strings.ToLower(ref.Kind) == "statefulsets" {
+				nObj, err := kube.AppsV1().StatefulSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return getTopLevelObject(kube, nObj)
+			} else {
+				return nil, errors.New("unrecognized object type " + ref.Kind)
+			}
+		}
+	}
+	return obj, nil
+}
+
+func deriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts bool) *hostnameAndTag {
+	parts := strings.Split(podName, "-")
+	if useAkkerisHosts {
+		podId := strings.Join(parts[len(parts)-2:], "-")
+		appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
+		if len(appAndDyno) < 2 {
+			appAndDyno = append(appAndDyno, "web")
+		}
+		return &hostnameAndTag{
+			Hostname: appAndDyno[0] + "-" + podNamespace,
+			Tag: appAndDyno[1] + "." + podId,
+		}
+	}
+	return &hostnameAndTag{
+		Hostname: strings.Join(parts[:len(parts)-2], "-") + "." + podNamespace,
+		Tag: podName,
+	}
+}
+
+func akkerisGetTag(parts []string) string {
+	podId := strings.Join(parts[len(parts)-2:], "-")
+	appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
+	if len(appAndDyno) < 2 {
+		appAndDyno = append(appAndDyno, "web")
+	}
+	return appAndDyno[1] + "." + podId
+}
+
+func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkkerisHosts bool) *hostnameAndTag {
+	parts := strings.Split(obj.GetName(), "-")
+	if host, ok := obj.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
+		if tag, ok := obj.GetAnnotations()[storage.TagAnnotationKey]; ok {
+			return &hostnameAndTag{
+				Hostname: host,
+				Tag: tag,
+			}
+		} else {
+			if useAkkerisHosts == true {
+				return &hostnameAndTag{
+					Hostname: host,
+					Tag: akkerisGetTag(parts),
+				}
+			} else {
+				return &hostnameAndTag{
+					Hostname: host,
+					Tag: obj.GetName(),
+				}
+			}
+		}
+	}
+	top, err := getTopLevelObject(kube, obj)
+	if err != nil {
+		log.Printf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
+		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
+	}
+	if useAkkerisHosts == true {
+		appName, ok1 := top.GetLabels()[storage.AkkerisAppLabelKey]
+		dynoType, ok2 := top.GetLabels()[storage.AkkerisDynoTypeLabelKey]
+		if ok1 && ok2 {
+			podId := strings.Join(parts[len(parts)-2:], "-")
+			return &hostnameAndTag{
+				Hostname: appName + "-" + obj.GetNamespace(),
+				Tag: dynoType + "." + podId,
+			}
+		}
+		return &hostnameAndTag{
+			Hostname: top.GetName() + "-" + obj.GetNamespace(),
+			Tag: akkerisGetTag(parts),
+		}
+	}
+	return &hostnameAndTag{
+		Hostname: top.GetName() + "." + obj.GetNamespace(),
+		Tag: obj.GetName(),
+	}
 }
 
 func dir(root string) []string {
@@ -140,12 +260,12 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	}
 
 	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
-	hostAndTag := storage.DeriveHostnameFromPod(details.Pod, details.Namespace, useAkkerisHosts)
+	hostAndTag := deriveHostnameFromPod(details.Pod, details.Namespace, useAkkerisHosts)
 	pod, err := handler.kube.CoreV1().Pods(details.Namespace).Get(details.Pod, api.GetOptions{})
 	if err != nil {
 		log.Printf("Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
 	} else {
-		hostAndTag = storage.GetHostNameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
+		hostAndTag = getHostnameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
 	proc, err := follower.New(file, config)
 	if err != nil {

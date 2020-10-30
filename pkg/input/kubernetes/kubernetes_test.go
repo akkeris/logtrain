@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 	. "github.com/smartystreets/goconvey/convey"
+    "github.com/akkeris/logtrain/internal/storage"
 	"github.com/papertrail/remote_syslog2/syslog"
 	"k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/api/core/v1"
@@ -24,12 +25,24 @@ func write(f *os.File, content string) error {
 }
 
 func TestKubernetesInput(t *testing.T) {
+	kube := fake.NewSimpleClientset()
+
 	if err := os.RemoveAll("/tmp/kubernetes_test"); err != nil {
 		log.Fatal(err)
 	}
 	if err := os.Mkdir("/tmp/kubernetes_test", 0755); err != nil {
 		log.Fatal(err)
 	}
+
+	statefulset := apps.StatefulSet{}
+	statefulset.SetName("alamotest2112")
+	statefulset.SetNamespace("default")
+	daemonset := apps.DaemonSet{}
+	daemonset.SetName("alamotest2112")
+	daemonset.SetNamespace("default")
+	daemonset.Annotations = make(map[string]string)
+	daemonset.Annotations[storage.AkkerisAppLabelKey] = "alamotest2112"
+	daemonset.Annotations[storage.AkkerisDynoTypeLabelKey] = "worker"
 	deployment := apps.Deployment{}
 	deployment.SetName("alamotest2112")
 	deployment.SetNamespace("default")
@@ -37,6 +50,20 @@ func TestKubernetesInput(t *testing.T) {
 	replicaset.SetName("alamotest2112-64cd4f4ff7")
 	replicaset.SetNamespace("default")
 	replicaset.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+
+	if err := kube.Tracker().Add(replicaset.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(statefulset.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(daemonset.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(deployment.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+
 	pod := core.Pod{}
 	pod.SetName("alamotest2112-64cd4f4ff7-6bqb8")
 	pod.SetNamespace("default")
@@ -45,12 +72,92 @@ func TestKubernetesInput(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	Convey("Ensure nothing blows up on the handler stubs", t, func() {
 		So(handler.Dial(), ShouldBeNil)
 		So(handler.Dial(), ShouldNotBeNil)
 		So(handler.Pools(), ShouldEqual, true)
 	})
+	
+	Convey("Test deriving hostname from pods", t, func() {
+		hostAndTag := deriveHostnameFromPod("alamotest2112-64cd4f4ff7-6bqb8", "default", false)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112.default")
+		So(hostAndTag.Tag, ShouldEqual, "alamotest2112-64cd4f4ff7-6bqb8")
+		hostAndTag = deriveHostnameFromPod("alamotest2112-64cd4f4ff7-6bqb8", "default", true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112-default")
+		So(hostAndTag.Tag, ShouldEqual, "web.64cd4f4ff7-6bqb8")
+		hostAndTag = deriveHostnameFromPod("alamotest2111--worker-64cd4f4ff7-6bqb8", "default", true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2111-default")
+		So(hostAndTag.Tag, ShouldEqual, "worker.64cd4f4ff7-6bqb8")
+	})
+	Convey("Test getting hostname from pods", t, func() {
+		pod := core.Pod{}
+		pod.SetName("alamotest2111-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"replicaset", Name:"alamotest2112-64cd4f4ff7"}})
+		hostAndTag := getHostnameAndTagFromPod(kube, &pod, false)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112.default")
+		So(hostAndTag.Tag, ShouldEqual, "alamotest2111-64cd4f4ff7-6bqb8")
+		
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112-default")
+		So(hostAndTag.Tag, ShouldEqual, "web.64cd4f4ff7-6bqb8")
 
+		pod = core.Pod{}
+		pod.SetName("alamotest2111--worker-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"daemonset", Name:"alamotest2112"}})
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112-default")
+		So(hostAndTag.Tag, ShouldEqual, "worker.64cd4f4ff7-6bqb8")
+
+		pod = core.Pod{}
+		pod.SetName("alamotest2111--worker-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"statefulset", Name:"alamotest2112"}})
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2112-default")
+		So(hostAndTag.Tag, ShouldEqual, "worker.64cd4f4ff7-6bqb8")
+
+		pod = core.Pod{}
+		pod.SetName("alamotest2111--worker-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"doesnotexist", Name:"alamotest2112"}})
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "alamotest2111-default") // since kind does not exist it should back up to deriving the hostname.
+		So(hostAndTag.Tag, ShouldEqual, "worker.64cd4f4ff7-6bqb8")
+
+		pod = core.Pod{}
+		pod.SetName("alamotest2110-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
+		pod.Annotations[storage.TagAnnotationKey] = "alamotest2110"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "foobar.com")
+		So(hostAndTag.Tag, ShouldEqual, "alamotest2110")
+
+		pod = core.Pod{}
+		pod.SetName("alamotest2110-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
+		pod.SetNamespace("default")
+		pod.Annotations = make(map[string]string)
+		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
+		pod.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
+		So(hostAndTag.Hostname, ShouldEqual, "foobar.com")
+		So(hostAndTag.Tag, ShouldEqual, "web.64cd4f4ff7-6bqb8")
+	})
 	Convey("Ensure we can receive messages", t, func() {
 		p := syslog.Packet{
 			Severity:0,
