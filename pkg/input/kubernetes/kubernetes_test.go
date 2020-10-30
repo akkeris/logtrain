@@ -51,6 +51,20 @@ func TestKubernetesInput(t *testing.T) {
 	replicaset.SetNamespace("default")
 	replicaset.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
 
+
+	deploymentWithHostnameAndTag := apps.Deployment{}
+	deploymentWithHostnameAndTag.SetName("alamotest2115")
+	deploymentWithHostnameAndTag.SetNamespace("default")
+	deploymentWithHostnameAndTag.Annotations = make(map[string]string)
+	deploymentWithHostnameAndTag.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
+	deploymentWithHostnameAndTag.Annotations[storage.TagAnnotationKey] = "alamotest2110"
+
+	deploymentWithHostname := apps.Deployment{}
+	deploymentWithHostname.SetName("alamotest2116")
+	deploymentWithHostname.SetNamespace("default")
+	deploymentWithHostname.Annotations = make(map[string]string)
+	deploymentWithHostname.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
+
 	if err := kube.Tracker().Add(replicaset.DeepCopyObject()); err != nil {
 		log.Fatal(err.Error())
 	}
@@ -61,6 +75,12 @@ func TestKubernetesInput(t *testing.T) {
 		log.Fatal(err.Error())
 	}
 	if err := kube.Tracker().Add(deployment.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(deploymentWithHostname.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(deploymentWithHostnameAndTag.DeepCopyObject()); err != nil {
 		log.Fatal(err.Error())
 	}
 
@@ -139,10 +159,7 @@ func TestKubernetesInput(t *testing.T) {
 		pod.SetName("alamotest2110-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
 		pod.SetNamespace("default")
 		pod.Annotations = make(map[string]string)
-		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
-		pod.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
-		pod.Annotations[storage.TagAnnotationKey] = "alamotest2110"
-		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2115"}})
 		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
 		So(hostAndTag.Hostname, ShouldEqual, "foobar.com")
 		So(hostAndTag.Tag, ShouldEqual, "alamotest2110")
@@ -151,9 +168,7 @@ func TestKubernetesInput(t *testing.T) {
 		pod.SetName("alamotest2110-64cd4f4ff7-6bqb8") // use a different pod name to tell if it fell back to deriving the hostname.
 		pod.SetNamespace("default")
 		pod.Annotations = make(map[string]string)
-		pod.Annotations[storage.DrainAnnotationKey] = "syslog://localhost:129"
-		pod.Annotations[storage.HostnameAnnotationKey] = "foobar.com"
-		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2112"}})
+		pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind:"deployment", Name:"alamotest2116"}})
 		hostAndTag = getHostnameAndTagFromPod(kube, &pod, true)
 		So(hostAndTag.Hostname, ShouldEqual, "foobar.com")
 		So(hostAndTag.Tag, ShouldEqual, "web.64cd4f4ff7-6bqb8")
