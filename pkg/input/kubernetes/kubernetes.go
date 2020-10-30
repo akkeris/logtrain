@@ -126,8 +126,13 @@ func akkerisGetTag(parts []string) string {
 
 func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkkerisHosts bool) *hostnameAndTag {
 	parts := strings.Split(obj.GetName(), "-")
-	if host, ok := obj.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
-		if tag, ok := obj.GetAnnotations()[storage.TagAnnotationKey]; ok {
+	top, err := getTopLevelObject(kube, obj)
+	if err != nil {
+		log.Printf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
+		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
+	}
+	if host, ok := top.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
+		if tag, ok := top.GetAnnotations()[storage.TagAnnotationKey]; ok {
 			return &hostnameAndTag{
 				Hostname: host,
 				Tag: tag,
@@ -141,15 +146,10 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 			} else {
 				return &hostnameAndTag{
 					Hostname: host,
-					Tag: obj.GetName(),
+					Tag: top.GetName(),
 				}
 			}
 		}
-	}
-	top, err := getTopLevelObject(kube, obj)
-	if err != nil {
-		log.Printf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
-		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
 	}
 	if useAkkerisHosts == true {
 		appName, ok1 := top.GetLabels()[storage.AkkerisAppLabelKey]
