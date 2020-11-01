@@ -10,11 +10,10 @@ import (
 
 /*
  * Responsibilities:
- * - Determining if a drain is misbehaving and temporarily stopping traffic to it.
- *X- A single point for incoming packets from various inputs.
- *X- Manages opening one drain per destination - on-demand - based on incoming traffic and routes
- * - Manages closing drains when no input(s) have info on that source, or when routes are removed
- * - Measuring and receiving metrics (and reporting them).
+ ? - Determining if a output/drain is misbehaving and temporarily stopping traffic to it.
+ * - A single point for incoming packets from various inputs.
+ * - Manages opening one drain per destination - on-demand - based on incoming traffic and routes
+ ? - Measuring and receiving metrics (and reporting them).
  *
  * Principals:
  * - Only create one route per application.
@@ -139,8 +138,32 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 			delete(router.endpointsByHost, r.Hostname)
 		}
 	}
-	// TODO: this would be an opportune time to audit the drainsByHost and drainsByEndpoint
-	// disconnect any that did not appear in this route refresh.
+	if drains, ok := router.drainsByHost[r.Hostname]; ok {
+		drs := make([]*Drain, 0)
+		for _, d := range drains {
+			if d.Endpoint != r.Endpoint {
+				drs = append(drs, d)
+			}
+		}
+		if len(drs) > 0 {
+			router.drainsByHost[r.Hostname] = drs
+		} else {
+			delete(router.drainsByHost, r.Hostname)
+		}
+	}
+
+	var foundUsedEndpoint = false
+	for _, drs := range router.drainsByHost {
+		for _, d := range drs {
+			if d.Endpoint == r.Endpoint {
+				foundUsedEndpoint = true
+			}
+		}
+	}
+	if foundUsedEndpoint == false {
+		router.drainByEndpoint[r.Endpoint].Close()
+		delete(router.drainByEndpoint, r.Endpoint)
+	}
 }
 
 func (router *Router) refreshRoutes() error {

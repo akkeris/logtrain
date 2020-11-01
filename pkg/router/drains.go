@@ -30,7 +30,7 @@ type Drain struct {
 	Input          chan syslog.Packet
 	Info           chan string
 	Error          chan error
-	endpoint       string
+	Endpoint       string
 	maxconnections uint32
 	errors         uint32
 	connections    []output.Output
@@ -51,7 +51,7 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 		return nil, errors.New("Max connections must not be 0.")
 	}
 	drain := Drain{
-		endpoint:       endpoint,
+		Endpoint:       endpoint,
 		maxconnections: maxconnections,
 		errors:         0,
 		sent:           0,
@@ -111,7 +111,7 @@ func (drain *Drain) Close() error {
 			return err
 		}
 		drain.open--
-		drain.info(fmt.Sprintf("[drains] Closing connection to %s\n", drain.endpoint))
+		drain.info(fmt.Sprintf("[drains] Closing connection to %s\n", drain.Endpoint))
 	}
 	return nil
 }
@@ -134,7 +134,7 @@ func (drain *Drain) error(msg error) {
 func (drain *Drain) connect() error {
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
-	conn, err := output.Create(drain.endpoint)
+	conn, err := output.Create(drain.Endpoint)
 	if err != nil {
 		drain.error(err)
 		return err
@@ -147,7 +147,7 @@ func (drain *Drain) connect() error {
 	drain.transportPools = conn.Pools()
 	drain.connections = append(drain.connections, conn)
 	drain.open++
-	drain.info(fmt.Sprintf("[drains] Opening new connection to %s\n", drain.endpoint))
+	drain.info(fmt.Sprintf("[drains] Opening new connection to %s\n", drain.Endpoint))
 
 	go func() {
 		for {
@@ -179,7 +179,7 @@ func (drain *Drain) loopRoundRobin() {
 			drain.connections[drain.sent%drain.open].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure*100))
+				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.Endpoint, drain.open, drain.pressure*100))
 				go drain.connect()
 			}
 			drain.mutex.Unlock()
@@ -199,7 +199,7 @@ func (drain *Drain) loopSticky() {
 			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.endpoint, drain.open, drain.pressure*100))
+				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.Endpoint, drain.open, drain.pressure*100))
 				go drain.connect()
 			}
 			drain.mutex.Unlock()

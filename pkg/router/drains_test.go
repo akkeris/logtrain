@@ -60,14 +60,14 @@ func (server *SudoSyslogServer) Listen() {
 			connections++
 			var written int64 = 0
 			buffer := bytes.NewBuffer([]byte{})
+			go func() {
+				select {
+				case <-server.stop:
+					conn.Close()
+					return
+				}
+			}()
 			for {
-				go func() {
-					select {
-					case <-server.stop:
-						conn.Close()
-						return
-					}
-				}()
 				written, err = io.CopyN(buffer, conn, 1)
 				if err != nil {
 					conn.Close()
