@@ -73,7 +73,6 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 
 func init() {
 	flag.IntVar(&options.Port, "port", 9000, "use '--port' option to specify the port for broker to listen on")
-	//flag.IntVar(&options.Port, "port", 9000, "use '--port' option to specify the port for broker to listen on")
 	flag.StringVar(&options.KubeConfig, "kube-config", "", "specify the kube config path to be used")
 	flag.Parse()
 }
@@ -207,7 +206,6 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if os.Getenv("SYSLOG_TLS_SERVER_NAME") == "" {
 			return errors.New("The syslog tls environment variable SYSLOG_TLS_SERVER_NAME was not found.")
 		}
-		//Create(server_name string, key_pem string, cert_pem string, ca_pem string, address string)
 		handle, err := syslogtls.Create(os.Getenv("SYSLOG_TLS_SERVER_NAME"), os.Getenv("SYSLOG_TLS_KEY_PEM"), os.Getenv("SYSLOG_TLS_CERT_PEM"), os.Getenv("SYSLOG_TLS_CA_PEM"), "0.0.0.0:" + getOsOrDefault("SYSLOG_TLS_PORT","9004"))
 		if err != nil {
 			return err
