@@ -134,6 +134,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
+		log.Printf("Added envoy on port %s\n", getOsOrDefault("ENVOY_PORT", "9001"))
 	}
 
 	// Check to see if http events will be used as an input
@@ -145,10 +146,12 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err := handle.Dial(); err != nil {
 			return err
 		}
-		server.mux.Handle(getOsOrDefault("HTTP_EVENTS_PATH", "/events"), handle.HandlerFunc)
+		server.mux.HandleFunc(getOsOrDefault("HTTP_EVENTS_PATH", "/events"), handle.HandlerFunc)
 		if err := router.AddInput(handle, "http"); err != nil {
 			return err
 		}
+		addedInput = true
+		log.Printf("Added http endpoint %s for JSON syslog payloads\n", getOsOrDefault("HTTP_EVENTS_PATH", "/events"))
 	}
 
 	// Check to see if syslog over http will be used as an input
@@ -160,10 +163,12 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err := handle.Dial(); err != nil {
 			return err
 		}
-		server.mux.Handle(getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"), handle.HandlerFunc)
+		server.mux.HandleFunc(getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"), handle.HandlerFunc)
 		if err := router.AddInput(handle, "sysloghttp"); err != nil {
 			return err
 		}
+		addedInput = true
+		log.Printf("Added syslog over http on path %s \n", getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"))
 	}
 
 	// Check to see if syslog over tcp will be used.
@@ -178,6 +183,8 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err := router.AddInput(handle, "syslogtcp"); err != nil {
 			return err
 		}
+		addedInput = true
+		log.Printf("Added syslog over tcp on port %s \n", getOsOrDefault("SYSLOG_TCP_PORT", "9002"))
 	}
 
 	// Check to see if syslog over udp will be used.
@@ -192,6 +199,8 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err := router.AddInput(handle, "syslogudp"); err != nil {
 			return err
 		}
+		addedInput = true
+		log.Printf("Added syslog over udp on port %s \n", getOsOrDefault("SYSLOG_UDP_PORT", "9003"))
 	}
 
 	// Check to see if syslog over tls will be used.
@@ -215,6 +224,8 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err := router.AddInput(handle, "syslogtls"); err != nil {
 			return err
 		}
+		addedInput = true
+		log.Printf("Added syslog over tcp+tls on port %s \n", getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
 	}
 
 	// Check to see if we should add kubernetes as an input
@@ -234,6 +245,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
+		log.Printf("Added kubernetes file watcher\n")
 	}
 
 	if !addedInput {
@@ -267,8 +279,8 @@ func createHttpServer(port string) *httpServer {
 			MaxHeaderBytes: 1 << 20,
 		},
 	}
-	go server.ListenAndServer()
-	return server
+	go server.server.ListenAndServe()
+	return &server
 }
 
 func runWithContext(ctx context.Context) error {
@@ -285,7 +297,7 @@ func runWithContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := addInputsToRouter(router, server); err != nil {
+	if err := addInputsToRouter(router, httpServer); err != nil {
 		return err
 	}
 	printMetricsLoop(router) // This never returns
