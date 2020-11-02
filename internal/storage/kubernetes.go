@@ -103,7 +103,7 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							}
 							if !found {
 								// remove route as it was not found in the new set of routes
-								kds.remove <- LogRoute {
+								kds.remove <- LogRoute{
 									Endpoint: strings.TrimSpace(dOld),
 									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
 								}
@@ -118,7 +118,7 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							}
 							if !found {
 								// add a new route as it wasn't found in the old set of routes
-								kds.add <- LogRoute {
+								kds.add <- LogRoute{
 									Endpoint: strings.TrimSpace(dNew),
 									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
 								}

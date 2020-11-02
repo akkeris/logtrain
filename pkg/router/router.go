@@ -21,14 +21,14 @@ import (
  * - Add inputs to the router (anything in ./pkg/input/).
  * - Router automatically creates ./pkg/output through the drains based on needs.
  * - The router and drains have a 1-many relationship, yet tightly dependent/coupled.
- */
+*/
 
 type Metric struct {
 	MaxConnections uint32
-	Connections uint32
-	Pressure float64
-	Sent uint32
-	Errors uint32
+	Connections    uint32
+	Pressure       float64
+	Sent           uint32
+	Errors         uint32
 }
 
 type Router struct {
@@ -97,12 +97,12 @@ func (router *Router) Metrics() map[string]Metric {
 	metrics := make(map[string]Metric, 0)
 	for host, drains := range router.drainsByHost {
 		for _, drain := range drains {
-			metrics[host + "->" + drain.Endpoint] = Metric{
+			metrics[host+"->"+drain.Endpoint] = Metric{
 				MaxConnections: drain.MaxConnections(),
-				Connections: drain.OpenConnections(),
-				Pressure: drain.Pressure(),
-				Sent: drain.Sent(),
-				Errors: drain.Errors(),
+				Connections:    drain.OpenConnections(),
+				Pressure:       drain.Pressure(),
+				Sent:           drain.Sent(),
+				Errors:         drain.Errors(),
 			}
 		}
 	}

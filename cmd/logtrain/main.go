@@ -1,37 +1,36 @@
-
 package main
 
 import (
 	"context"
 	"errors"
 	"flag"
+	"github.com/akkeris/logtrain/internal/storage"
+	envoy "github.com/akkeris/logtrain/pkg/input/envoy"
+	http_events "github.com/akkeris/logtrain/pkg/input/http"
+	kube "github.com/akkeris/logtrain/pkg/input/kubernetes"
+	"github.com/akkeris/logtrain/pkg/input/sysloghttp"
+	"github.com/akkeris/logtrain/pkg/input/syslogtcp"
+	"github.com/akkeris/logtrain/pkg/input/syslogtls"
+	"github.com/akkeris/logtrain/pkg/input/syslogudp"
+	"github.com/akkeris/logtrain/pkg/router"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/rest"
-	"github.com/akkeris/logtrain/internal/storage"
-	kube "github.com/akkeris/logtrain/pkg/input/kubernetes"
-	envoy "github.com/akkeris/logtrain/pkg/input/envoy"
-	http_events "github.com/akkeris/logtrain/pkg/input/http"
-	"github.com/akkeris/logtrain/pkg/input/sysloghttp"
-	"github.com/akkeris/logtrain/pkg/input/syslogtcp"
-	"github.com/akkeris/logtrain/pkg/input/syslogudp"
-	"github.com/akkeris/logtrain/pkg/input/syslogtls"
-	"github.com/akkeris/logtrain/pkg/router"
 )
 
 var options struct {
 	KubeConfig string
-	Port int
+	Port       int
 }
 
 type httpServer struct {
-	mux *http.ServeMux
+	mux    *http.ServeMux
 	server *http.Server
 }
 
@@ -136,7 +135,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		}
 		addedInput = true
 	}
-	
+
 	// Check to see if http events will be used as an input
 	if os.Getenv("HTTP_EVENTS") == "true" {
 		handle, err := http_events.Create()
@@ -151,7 +150,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 	}
-	
+
 	// Check to see if syslog over http will be used as an input
 	if os.Getenv("HTTP_SYSLOG") == "true" {
 		handle, err := sysloghttp.Create()
@@ -166,7 +165,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 	}
-	
+
 	// Check to see if syslog over tcp will be used.
 	if os.Getenv("SYSLOG_TCP") == "true" {
 		handle, err := syslogtcp.Create("0.0.0.0:" + getOsOrDefault("SYSLOG_TCP_PORT", "9002"))
@@ -183,7 +182,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 
 	// Check to see if syslog over udp will be used.
 	if os.Getenv("SYSLOG_UDP") == "true" {
-		handle, err := syslogudp.Create("0.0.0.0:" + getOsOrDefault("SYSLOG_UDP_PORT","9003"))
+		handle, err := syslogudp.Create("0.0.0.0:" + getOsOrDefault("SYSLOG_UDP_PORT", "9003"))
 		if err != nil {
 			return err
 		}
@@ -206,7 +205,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if os.Getenv("SYSLOG_TLS_SERVER_NAME") == "" {
 			return errors.New("The syslog tls environment variable SYSLOG_TLS_SERVER_NAME was not found.")
 		}
-		handle, err := syslogtls.Create(os.Getenv("SYSLOG_TLS_SERVER_NAME"), os.Getenv("SYSLOG_TLS_KEY_PEM"), os.Getenv("SYSLOG_TLS_CERT_PEM"), os.Getenv("SYSLOG_TLS_CA_PEM"), "0.0.0.0:" + getOsOrDefault("SYSLOG_TLS_PORT","9004"))
+		handle, err := syslogtls.Create(os.Getenv("SYSLOG_TLS_SERVER_NAME"), os.Getenv("SYSLOG_TLS_KEY_PEM"), os.Getenv("SYSLOG_TLS_CERT_PEM"), os.Getenv("SYSLOG_TLS_CA_PEM"), "0.0.0.0:"+getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
 		if err != nil {
 			return err
 		}
@@ -258,7 +257,7 @@ func printMetricsLoop(router *router.Router) {
 
 func createHttpServer(port string) *httpServer {
 	mux := http.NewServeMux()
-	server := httpServer {
+	server := httpServer{
 		mux: mux,
 		server: &http.Server{
 			Addr:           ":" + port,
@@ -273,7 +272,7 @@ func createHttpServer(port string) *httpServer {
 }
 
 func runWithContext(ctx context.Context) error {
-	httpServer := createHttpServer(getOsOrDefault("HTTP_PORT","9000"))
+	httpServer := createHttpServer(getOsOrDefault("HTTP_PORT", "9000"))
 
 	ds, err := findDataSources()
 	if err != nil {
@@ -308,4 +307,3 @@ func main() {
 	log.Printf("Exiting\n")
 
 }
-
