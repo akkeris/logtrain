@@ -21,21 +21,61 @@
 * `syslog+tcp://host:port`
 * `syslog+udp://` (aliases, `syslog://`)
 
-## Configuration
+## Configuring Log Sources
 
-### Akkeris
+### General
 
-* `AKKERIS=true` - for Akkeris formatting of output.
+* `HTTP_PORT` - The port to use for the http server, shared by any http (payload) and http (syslog) inputs.
 
 ### Kubernetes
 
 * `KUBERNETES` - set to `true`
 * `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs
 
-### Envoy
+### Envoy/Istio
 
-* `ENVOY=true`
-* `ENVOY_PORT=9001`
+* `ENVOY` - set to `true`
+* `ENVOY_PORT` - The port number to listen for gRPC access log streams (default is `9001`)
+
+### Http (events)
+
+* `HTTP_EVENTS` - set to `true`
+* `HTTP_EVENTS_PATH` - optional, The path on the http server to receive http event payloads, defaults to `/events`
+
+Note, the port is inherited from `HTTP_PORT`.  The endpoint only allows one per event over the body and must
+be the format defined by [pkg/output/packet/packet.go](packet.go).
+
+### Http (syslog stream)
+
+* `HTTP_SYSLOG` - set to `true`
+* `HTTP_SYSLOG_PATH` - optional, The path on the http server to receive syslog streams as http, defaults to `/syslog`
+
+Note, the port is inherited from `HTTP_PORT`.
+
+###  Syslog (TCP)
+
+* `SYSLOG_TCP` - set to `true`
+* `SYSLOG_TCP_PORT` - optional, defaults tcp `9002`
+
+### Syslog (UDP)
+
+* `SYSLOG_UDP` - set to `true`
+* `SYSLOG_UDP_PORT` - optional, defaults to `9003`
+
+### Syslog (TLS)
+
+* `SYSLOG_TLS` - set to `true`
+* `SYSLOG_TLS_CERT_PEM` - The PEM encoded certificate 
+* `SYSLOG_TLS_CA_PEM` - The PEM encoded certificate authority (optional)
+* `SYSLOG_TLS_KEY_PEM` - The PEM encoded certificate key
+* `SYSLOG_TLS_SERVER_NAME` - The servername the TLS server should use for SNI
+* `SYSLOG_TLS_PORT` - optional, defaults to `9004`
+
+
+### Akkeris Formatting (optional)
+
+* `AKKERIS=true` - for Akkeris formatting of output
+
 
 ## Developing
 
