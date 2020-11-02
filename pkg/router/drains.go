@@ -76,14 +76,21 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 func (drain *Drain) MaxConnections() uint32 {
 	return drain.maxconnections
 }
+
 func (drain *Drain) OpenConnections() uint32 {
 	return drain.open
 }
+
 func (drain *Drain) Pressure() float64 {
 	return drain.pressure
 }
+
 func (drain *Drain) Sent() uint32 {
 	return drain.sent
+}
+
+func (drain *Drain) Errors() uint32 {
+	return drain.errors
 }
 
 func (drain *Drain) Dial() error {

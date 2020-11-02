@@ -85,6 +85,60 @@ func (kds *KubernetesDataSource) removeRouteFromObj(obj interface{}) {
 	}
 }
 
+func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj interface{}) {
+	if kOldObj, ok := oldObj.(api.Object); ok {
+		if kNewObj, ok := newObj.(api.Object); ok {
+			if annotationNew, ok := kNewObj.GetAnnotations()[DrainAnnotationKey]; ok {
+				if annotationOld, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok {
+					if annotationNew != annotationOld {
+						// Drains updated
+						oldDrains := strings.Split(annotationOld, ";")
+						newDrains := strings.Split(annotationNew, ";")
+						for _, dOld := range oldDrains {
+							var found = false
+							for _, dNew := range newDrains {
+								if strings.ToLower(strings.TrimSpace(dOld)) == strings.ToLower(strings.TrimSpace(dNew)) {
+									found = true
+								}
+							}
+							if !found {
+								// remove route as it was not found in the new set of routes
+								kds.remove <- LogRoute {
+									Endpoint: strings.TrimSpace(dOld),
+									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
+								}
+							}
+						}
+						for _, dNew := range newDrains {
+							var found = false
+							for _, dOld := range oldDrains {
+								if strings.ToLower(strings.TrimSpace(dOld)) == strings.ToLower(strings.TrimSpace(dNew)) {
+									found = true
+								}
+							}
+							if !found {
+								// add a new route as it wasn't found in the old set of routes
+								kds.add <- LogRoute {
+									Endpoint: strings.TrimSpace(dNew),
+									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
+								}
+							}
+						}
+					}
+				} else {
+					// New drain added
+					kds.addRouteFromObj(newObj)
+				}
+			} else {
+				if _, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok {
+					// Removed a drain
+					kds.removeRouteFromObj(oldObj)
+				}
+			}
+		}
+	}
+}
+
 func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSource, error) {
 	useAkkeris := false
 	if os.Getenv("AKKERIS") == "true" {
@@ -115,6 +169,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
 	go controllerReplicaSets.Run(kds.stop)
@@ -134,6 +189,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
 	go controllerDeployments.Run(kds.stop)
@@ -153,6 +209,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
 	go controllerDaemonSets.Run(kds.stop)
@@ -172,6 +229,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    kds.addRouteFromObj,
 			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
 	go controllerStatefulSets.Run(kds.stop)

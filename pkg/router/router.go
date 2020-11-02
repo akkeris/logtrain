@@ -13,7 +13,7 @@ import (
  ? - Determining if a output/drain is misbehaving and temporarily stopping traffic to it.
  * - A single point for incoming packets from various inputs.
  * - Manages opening one drain per destination - on-demand - based on incoming traffic and routes
- ? - Measuring and receiving metrics (and reporting them).
+ * - Measuring and receiving metrics (and reporting them).
  *
  * Principals:
  * - Only create one route per application.
@@ -22,6 +22,14 @@ import (
  * - Router automatically creates ./pkg/output through the drains based on needs.
  * - The router and drains have a 1-many relationship, yet tightly dependent/coupled.
  */
+
+type Metric struct {
+	MaxConnections uint32
+	Connections uint32
+	Pressure float64
+	Sent uint32
+	Errors uint32
+}
 
 type Router struct {
 	datasources           []storage.DataSource
@@ -83,6 +91,22 @@ func (router *Router) Dial() error {
 	}
 	go router.writeLoop()
 	return nil
+}
+
+func (router *Router) Metrics() map[string]Metric {
+	metrics := make(map[string]Metric, 0)
+	for host, drains := range router.drainsByHost {
+		for _, drain := range drains {
+			metrics[host + "->" + drain.Endpoint] = Metric{
+				MaxConnections: drain.MaxConnections(),
+				Connections: drain.OpenConnections(),
+				Pressure: drain.Pressure(),
+				Sent: drain.Sent(),
+				Errors: drain.Errors(),
+			}
+		}
+	}
+	return metrics
 }
 
 func (router *Router) Close() error {

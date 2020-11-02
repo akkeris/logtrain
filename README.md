@@ -27,6 +27,11 @@
 
 * `AKKERIS=true` - for Akkeris formatting of output.
 
+### Kubernetes
+
+* `KUBERNETES` - set to `true`
+* `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs
+
 ### Envoy
 
 * `ENVOY=true`
