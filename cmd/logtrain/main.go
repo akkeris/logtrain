@@ -145,7 +145,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if os.Getenv("ENVOY_PORT") != "" {
 			address = address + os.Getenv("ENVOY_PORT")
 		} else {
-			address = address + ":9001"
+			address = address + "9001"
 		}
 		in, err := envoy.Create(address)
 		if err != nil {

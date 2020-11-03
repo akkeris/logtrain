@@ -106,7 +106,6 @@ func (pds *PostgresDataSource) listenForChanges() {
 }
 
 func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*PostgresDataSource, error) {
-
 	pds := PostgresDataSource{
 		listener: listener,
 		add:      make(chan LogRoute, 1),

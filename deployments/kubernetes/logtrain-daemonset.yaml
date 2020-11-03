@@ -15,9 +15,7 @@ spec:
         name: logtrain
     spec:
       containers:
-      - command:
-        - logtrain
-        env:
+      - env:
         - name: NODE
           valueFrom:
             fieldRef:
@@ -35,7 +33,7 @@ spec:
           value: "true"
         - name: SYSLOG_UDP
           value: "true"
-        image: akkeris/logtrain:v1
+        image: akkeris/logtrain:v0.0.1 # TODO add ability to auto-update this on release.
         imagePullPolicy: Always
         name: logtrain
         ports:
