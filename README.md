@@ -3,11 +3,12 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/28e234bd2afa4e0fac65da9944667aa8)](https://www.codacy.com/gh/akkeris/logtrain/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=akkeris/logtrain&amp;utm_campaign=Badge_Grade)
 [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/28e234bd2afa4e0fac65da9944667aa8)](https://www.codacy.com/gh/akkeris/logtrain/dashboard?utm_source=github.com&utm_medium=referral&utm_content=akkeris/logtrain&utm_campaign=Badge_Coverage)
 
-## Running
+## Overview
 
-## Using Logtrain API
+Logtrain is a system, similar to fluentd but a bit more specialized to solve two issues:
 
-## Using Logtrain with Kubernetes Deployments
+1. Have very low overhead (e.g., less than 64Mi)
+2. Dynamically route logs based on various data sources.
 
 ## Drain Types
 
@@ -21,7 +22,43 @@
 * `syslog+tcp://host:port`
 * `syslog+udp://` (aliases, `syslog://`)
 
-## Configuring Log Sources
+## Using Logtrain API
+
+***TODO***
+
+## Using Logtrain with Kubernetes
+
+```
+kubectl apply -f ./deployments/kubernetes/logtrain-serviceaccount.yaml
+kubectl apply -f ./deployments/kubernetes/logtrain-service.yaml
+kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
+```
+
+Once deployed you can annotation deployments, daemonsets, statefulsets or replicasets with the following:
+
+```
+logtrain.akkeris.io/drains
+```
+
+This annoation is a comma delimited list of drains (See Drain Types above).
+
+```
+logtrain.akkeris.io/hostname
+```
+
+Explicitly set the hostname used when reading in logs from kubernetes, if not set this will default to the `name.namespace`.
+
+```
+logtrain.akkeris.io/tag
+```
+
+Explicitly set the tag when reading in logs from kuberntes, if not set this will default to the pod name.
+
+## Using Logtrain with PostgreSQL Database
+
+***TODO***
+
+## Advanced Configuration
 
 ### General
 
@@ -45,7 +82,7 @@
 Note, the port is inherited from `HTTP_PORT`.  The endpoint only allows one per event over the body and must
 be the format defined by [pkg/output/packet/packet.go](packet.go).
 
-### Http (syslog stream)
+### SYSLOG (HTTP)
 
 * `HTTP_SYSLOG` - set to `true`
 * `HTTP_SYSLOG_PATH` - optional, The path on the http server to receive syslog streams as http, defaults to `/syslog`
@@ -79,10 +116,10 @@ Note, the port is inherited from `HTTP_PORT`.
 
 ## Developing
 
-### Building
+### Building Logtrain
 
 ```
-go build .
+go build cmd/logtrain/main.go -o logtrain
 ```
 
 ### Testing
