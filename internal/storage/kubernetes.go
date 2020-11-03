@@ -2,7 +2,7 @@ package storage
 
 import (
 	apps "k8s.io/api/apps/v1"
-	api "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,7 +28,7 @@ type KubernetesDataSource struct {
 	routes          []LogRoute
 }
 
-func GetHostNameFromTLO(kube kubernetes.Interface, obj api.Object, useAkkerisHosts bool) string {
+func GetHostNameFromTLO(kube kubernetes.Interface, obj meta.Object, useAkkerisHosts bool) string {
 	if host, ok := obj.GetAnnotations()[HostnameAnnotationKey]; ok {
 		return host
 	}
@@ -56,7 +56,7 @@ func (kds *KubernetesDataSource) Close() error {
 }
 
 func (kds *KubernetesDataSource) addRouteFromObj(obj interface{}) {
-	if kobj, ok := obj.(api.Object); ok {
+	if kobj, ok := obj.(meta.Object); ok {
 		if annotation, ok := kobj.GetAnnotations()[DrainAnnotationKey]; ok {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
@@ -71,7 +71,7 @@ func (kds *KubernetesDataSource) addRouteFromObj(obj interface{}) {
 }
 
 func (kds *KubernetesDataSource) removeRouteFromObj(obj interface{}) {
-	if kobj, ok := obj.(api.Object); ok {
+	if kobj, ok := obj.(meta.Object); ok {
 		if annotation, ok := kobj.GetAnnotations()[DrainAnnotationKey]; ok {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
@@ -86,10 +86,10 @@ func (kds *KubernetesDataSource) removeRouteFromObj(obj interface{}) {
 }
 
 func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj interface{}) {
-	if kOldObj, ok := oldObj.(api.Object); ok {
-		if kNewObj, ok := newObj.(api.Object); ok {
-			if annotationNew, ok := kNewObj.GetAnnotations()[DrainAnnotationKey]; ok {
-				if annotationOld, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok {
+	if kOldObj, ok := oldObj.(meta.Object); ok {
+		if kNewObj, ok := newObj.(meta.Object); ok {
+			if annotationNew, ok := kNewObj.GetAnnotations()[DrainAnnotationKey]; ok && annotationNew != "" {
+				if annotationOld, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok && annotationOld != "" {
 					if annotationNew != annotationOld {
 						// Drains updated
 						oldDrains := strings.Split(annotationOld, ";")
@@ -130,7 +130,7 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 					kds.addRouteFromObj(newObj)
 				}
 			} else {
-				if _, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok {
+				if annon, ok := kOldObj.GetAnnotations()[DrainAnnotationKey]; ok && annon != "" {
 					// Removed a drain
 					kds.removeRouteFromObj(oldObj)
 				}
@@ -149,18 +149,20 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		useAkkerisHosts: useAkkeris,
 		stop:            make(chan struct{}, 1),
 		kube:            kube,
-		add:             make(chan LogRoute, 1),
-		remove:          make(chan LogRoute, 1),
+		add:             make(chan LogRoute, 10),
+		remove:          make(chan LogRoute, 10),
 		routes:          make([]LogRoute, 0),
 	}
 
+	// TODO: Check permissions of service account before we run...
+
 	// Watch replicasets
 	listWatchReplicaSets := cache.NewListWatchFromClient(rest, "replicasets", "", fields.Everything())
-	listWatchReplicaSets.ListFunc = func(options api.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().ReplicaSets(api.NamespaceAll).List(options)
+	listWatchReplicaSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kube.AppsV1().ReplicaSets(meta.NamespaceAll).List(options)
 	}
-	listWatchReplicaSets.WatchFunc = func(options api.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().ReplicaSets(api.NamespaceAll).Watch(api.ListOptions{})
+	listWatchReplicaSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kube.AppsV1().ReplicaSets(meta.NamespaceAll).Watch(meta.ListOptions{})
 	}
 	_, controllerReplicaSets := cache.NewInformer(
 		listWatchReplicaSets,
@@ -176,11 +178,11 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 
 	// Watch deployments
 	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
-	listWatchDeployments.ListFunc = func(options api.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().Deployments(api.NamespaceAll).List(options)
+	listWatchDeployments.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kube.AppsV1().Deployments(meta.NamespaceAll).List(options)
 	}
-	listWatchDeployments.WatchFunc = func(options api.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().Deployments(api.NamespaceAll).Watch(api.ListOptions{})
+	listWatchDeployments.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kube.AppsV1().Deployments(meta.NamespaceAll).Watch(meta.ListOptions{})
 	}
 	_, controllerDeployments := cache.NewInformer(
 		listWatchDeployments,
@@ -196,11 +198,11 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 
 	// Watch daemonsets
 	listWatchDaemonSets := cache.NewListWatchFromClient(rest, "daemonsets", "", fields.Everything())
-	listWatchDaemonSets.ListFunc = func(options api.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().DaemonSets(api.NamespaceAll).List(options)
+	listWatchDaemonSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kube.AppsV1().DaemonSets(meta.NamespaceAll).List(options)
 	}
-	listWatchDaemonSets.WatchFunc = func(options api.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().DaemonSets(api.NamespaceAll).Watch(api.ListOptions{})
+	listWatchDaemonSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kube.AppsV1().DaemonSets(meta.NamespaceAll).Watch(meta.ListOptions{})
 	}
 	_, controllerDaemonSets := cache.NewInformer(
 		listWatchDaemonSets,
@@ -216,11 +218,11 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 
 	// Watch statefulsets
 	listWatchStatefulSets := cache.NewListWatchFromClient(rest, "statefulsets", "", fields.Everything())
-	listWatchStatefulSets.ListFunc = func(options api.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().StatefulSets(api.NamespaceAll).List(options)
+	listWatchStatefulSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kube.AppsV1().StatefulSets(meta.NamespaceAll).List(options)
 	}
-	listWatchStatefulSets.WatchFunc = func(options api.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().StatefulSets(api.NamespaceAll).Watch(api.ListOptions{})
+	listWatchStatefulSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kube.AppsV1().StatefulSets(meta.NamespaceAll).Watch(meta.ListOptions{})
 	}
 	_, controllerStatefulSets := cache.NewInformer(
 		listWatchStatefulSets,

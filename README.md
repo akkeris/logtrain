@@ -54,7 +54,7 @@ logtrain.akkeris.io/tag
 
 Explicitly set the tag when reading in logs from kuberntes, if not set this will default to the pod name.
 
-## Using Logtrain with PostgreSQL Database
+## Using Logtrain with Servers
 
 ***TODO***
 
@@ -82,7 +82,7 @@ Explicitly set the tag when reading in logs from kuberntes, if not set this will
 Note, the port is inherited from `HTTP_PORT`.  The endpoint only allows one per event over the body and must
 be the format defined by [pkg/output/packet/packet.go](packet.go).
 
-### SYSLOG (HTTP)
+### Syslog (HTTP)
 
 * `HTTP_SYSLOG` - set to `true`
 * `HTTP_SYSLOG_PATH` - optional, The path on the http server to receive syslog streams as http, defaults to `/syslog`

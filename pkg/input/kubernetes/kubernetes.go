@@ -364,6 +364,9 @@ func Create(logpath string, kube kubernetes.Interface) (*Kubernetes, error) {
 	if logpath == "" {
 		logpath = "/var/log/containers"
 	}
+
+	// TODO: Check permissions of service account, and directory exists... before we run...
+
 	return &Kubernetes{
 		kube:           kube,
 		errors:         make(chan error, 1),

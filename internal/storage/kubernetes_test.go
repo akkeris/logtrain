@@ -4,6 +4,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	//"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"testing"
 	"time"
@@ -11,6 +12,13 @@ import (
 
 func TestKubernetesDataSource(t *testing.T) {
 	kube := fake.NewSimpleClientset()
+
+	/*
+	 * Do not use the fake client Tracker to emit object changes,
+	 * we must manually call private methods in the data source
+	 * to mimick these callbacks as the fake client does not fully
+	 * support all of the watcher functionality.
+	 */
 	ds, err := CreateKubernetesDataSource(kube)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -23,6 +31,18 @@ func TestKubernetesDataSource(t *testing.T) {
 		e.Annotations[DrainAnnotationKey] = "syslog://localhost:123"
 		e.Annotations[HostnameAnnotationKey] = "example.com"
 		So(GetHostNameFromTLO(kube, &e, true), ShouldEqual, "example.com")
+		e = apps.Deployment{}
+		e.SetName("alamotest2112")
+		e.SetNamespace("default")
+		e.Annotations = make(map[string]string)
+		e.Annotations[DrainAnnotationKey] = "syslog://localhost:123"
+		So(GetHostNameFromTLO(kube, &e, false), ShouldEqual, "alamotest2112.default")
+		e = apps.Deployment{}
+		e.SetName("alamotest2112")
+		e.SetNamespace("default")
+		e.Annotations = make(map[string]string)
+		e.Annotations[DrainAnnotationKey] = "syslog://localhost:123"
+		So(GetHostNameFromTLO(kube, &e, true), ShouldEqual, "alamotest2112-default")
 	})
 	Convey("Test a new route being added and removed because of a new deployment being created and then destroyed.", t, func() {
 		d := apps.Deployment{}
@@ -30,16 +50,98 @@ func TestKubernetesDataSource(t *testing.T) {
 		d.SetNamespace("default")
 		d.Annotations = make(map[string]string)
 		d.Annotations[DrainAnnotationKey] = "syslog://localhost:123"
-		kube.Tracker().Add(d.DeepCopyObject())
+
+		// test route adds
+		ds.addRouteFromObj(&d)
 		select {
 		case route := <-ds.AddRoute():
 			So(route, ShouldNotBeNil)
 			So(route.Endpoint, ShouldEqual, "syslog://localhost:123")
 			So(route.Hostname, ShouldEqual, "alamotest2112.default")
 		case <-time.NewTimer(time.Second * 5).C:
-			log.Fatal("This should not have been called.")
+			log.Fatal("This should not have been called (add).")
 		}
 		So(GetHostNameFromTLO(kube, &d, true), ShouldEqual, "alamotest2112-default")
+
+		// test route removals
+		ds.removeRouteFromObj(&d)
+		select {
+		case route := <-ds.RemoveRoute():
+			So(route, ShouldNotBeNil)
+			So(route.Endpoint, ShouldEqual, "syslog://localhost:123")
+			So(route.Hostname, ShouldEqual, "alamotest2112.default")
+		case <-time.NewTimer(time.Second * 5).C:
+			log.Fatal("This should not have been called (remove).")
+		}
+
+		// Test route updates
+		d.Annotations = make(map[string]string)
+		e := apps.Deployment{}
+		e.SetName("alamotest2112")
+		e.SetNamespace("default")
+		e.Annotations = make(map[string]string)
+		e.Annotations[DrainAnnotationKey] = "syslog://localhost:124"
+
+		ds.reviewUpdateFromObj(&d, &e)
+		select {
+		case route := <-ds.AddRoute():
+			So(route, ShouldNotBeNil)
+			So(route.Endpoint, ShouldEqual, "syslog://localhost:124")
+			So(route.Hostname, ShouldEqual, "alamotest2112.default")
+		case <-time.NewTimer(time.Second * 5).C:
+			log.Fatal("This should not have been called (update).")
+		}
+
+		// Test route updates (adds to annotation)
+		d.Annotations[DrainAnnotationKey] = "syslog://localhost:124"
+		e.Annotations[DrainAnnotationKey] = "syslog://localhost:124; syslog://localhost:125"
+
+		ds.reviewUpdateFromObj(&d, &e)
+		select {
+		case route := <-ds.AddRoute():
+			So(route, ShouldNotBeNil)
+			So(route.Endpoint, ShouldEqual, "syslog://localhost:125")
+			So(route.Hostname, ShouldEqual, "alamotest2112.default")
+		case <-ds.RemoveRoute():
+			log.Fatal("This should not have been called (update remove #2).")
+		case <-time.NewTimer(time.Second * 5).C:
+			log.Fatal("This should not have been called (update #2).")
+		}
+
+		// Test route updates (remove from annotation)
+		d.Annotations[DrainAnnotationKey] = "syslog://localhost:124; syslog://localhost:125"
+		e.Annotations[DrainAnnotationKey] = "syslog://localhost:125"
+
+		ds.reviewUpdateFromObj(&d, &e)
+		select {
+		case route := <-ds.RemoveRoute():
+			So(route, ShouldNotBeNil)
+			So(route.Endpoint, ShouldEqual, "syslog://localhost:124")
+			So(route.Hostname, ShouldEqual, "alamotest2112.default")
+		case <-ds.AddRoute():
+			log.Fatal("This should not have been called (update add #3).")
+		case <-time.NewTimer(time.Second * 5).C:
+			log.Fatal("This should not have been called (update #3).")
+		}
+
+		// Test route updates (remove all)
+		d.Annotations[DrainAnnotationKey] = "syslog://localhost:124; syslog://localhost:125"
+		e.Annotations[DrainAnnotationKey] = ""
+
+		ds.reviewUpdateFromObj(&d, &e)
+		select {
+		case route := <-ds.RemoveRoute():
+			So(route, ShouldNotBeNil)
+		case <-ds.AddRoute():
+			log.Fatal("This should not have been called (update add #4).")
+		case <-time.NewTimer(time.Second * 5).C:
+			log.Fatal("This should not have been called (update #4).")
+		}
+	})
+	Convey("Ensure we can get all routes", t, func() {
+		routes, err := ds.GetAllRoutes()
+		So(err, ShouldBeNil)
+		So(len(routes), ShouldEqual, 0)
 	})
 	Convey("Test shutting down", t, func() {
 		So(ds.Close(), ShouldBeNil)

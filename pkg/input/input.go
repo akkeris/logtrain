@@ -11,3 +11,6 @@ type Input interface {
 	Packets() chan syslog.Packet
 	Pools() bool /* Whether the transport layer automatically pools or not. */
 }
+
+// TODO: input type "directory"...
+// TODO: special input type persistent s3 storage?...
