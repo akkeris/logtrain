@@ -34,7 +34,7 @@ kubectl apply -f ./deployments/kubernetes/logtrain-service.yaml
 kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
 ```
 
-Once deployed you can annotation deployments, daemonsets, statefulsets or replicasets with the following:
+Once deployed you can use the following annotations on deployments, daemonsets, statefulsets or replicasets to forward logs.
 
 ```
 logtrain.akkeris.io/drains
