@@ -64,6 +64,11 @@ Explicitly set the tag when reading in logs from kuberntes, if not set this will
 
 * `HTTP_PORT` - The port to use for the http server, shared by any http (payload) and http (syslog) inputs.
 
+### Postgres
+
+* `POSTGRES` - set to `true`
+* `DATABASE_URL` - The database url to use to listen for drain changes.
+
 ### Kubernetes
 
 * `KUBERNETES` - set to `true`
@@ -119,7 +124,7 @@ Note, the port is inherited from `HTTP_PORT`.
 ### Building Logtrain
 
 ```
-go build cmd/logtrain/main.go -o logtrain
+go build -o logtrain cmd/logtrain/main.go
 ```
 
 ### Testing
@@ -127,6 +132,8 @@ go build cmd/logtrain/main.go -o logtrain
 ```
 go test -v .../.
 ```
+
+(Note if you're using GoConvey its best to set the parallel packges to 1 via `-packages 1`)
 
 ### Code Coverage
 

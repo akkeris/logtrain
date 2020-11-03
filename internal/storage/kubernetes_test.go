@@ -4,7 +4,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	//"k8s.io/apimachinery/pkg/runtime/schema"
 	"log"
 	"testing"
 	"time"
