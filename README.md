@@ -5,7 +5,7 @@
 
 ## Overview
 
-Logtrain is a system for dynamically forwarding and transforming to logs, similar to fluentd but a bit more specialized to solve two issues...
+Logtrain is a system for dynamically forwarding and transforming logs, similar to fluentd but a bit more specialized to solve two issues...
 
 1. Have very low overhead (e.g., less than 64Mi)
 2. Dynamically route logs based on various data sources.
