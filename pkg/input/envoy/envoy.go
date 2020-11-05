@@ -56,9 +56,7 @@ func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 		origin = "origin=https://" + envoyMsg.CommonProperties.GetTlsProperties().TlsSniHostname + envoyMsg.Request.OriginalPath + " "
 	}
 
-
 	// TODO: Add https://github.com/envoyproxy/go-control-plane/blob/master/envoy/data/accesslog/v2/accesslog.pb.go#L652
-
 
 	ttlutxbyte, err := ptypes.Duration(envoyMsg.CommonProperties.TimeToLastUpstreamTxByte)
 	if err != nil {
@@ -111,21 +109,23 @@ func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAcces
 		case *v2.StreamAccessLogsMessage_HttpLogs:
 			for _, entry := range entries.HttpLogs.LogEntry {
 				c := strings.Split(entry.CommonProperties.UpstreamCluster, "|")
-				d := strings.Split(c[3], ".")
-				name := d[0]
-				namespace := d[1]
-				hostname := strings.Replace(strings.Replace(hostTemplate, "{name}", name, 1), "{namespace}", namespace, 1)
-				t, err := ptypes.Timestamp(entry.CommonProperties.StartTime)
-				if err != nil {
-					t = time.Now()
-				}
-				s.packets <- syslog.Packet{
-					Severity: 0,
-					Facility: 0,
-					Hostname: hostname,
-					Time:     t,
-					Tag:      tag,
-					Message:  layout(entry),
+				if len(c) > 3 {
+					d := strings.Split(c[3], ".")
+					name := d[0]
+					namespace := d[1]
+					hostname := strings.Replace(strings.Replace(hostTemplate, "{name}", name, 1), "{namespace}", namespace, 1)
+					t, err := ptypes.Timestamp(entry.CommonProperties.StartTime)
+					if err != nil {
+						t = time.Now()
+					}
+					s.packets <- syslog.Packet{
+						Severity: 0,
+						Facility: 0,
+						Hostname: hostname,
+						Time:     t,
+						Tag:      tag,
+						Message:  layout(entry),
+					}
 				}
 			}
 		}
