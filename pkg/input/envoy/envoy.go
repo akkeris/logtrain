@@ -10,6 +10,7 @@ import (
 	syslog "github.com/papertrail/remote_syslog2/syslog"
 	"google.golang.org/grpc"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -90,12 +91,14 @@ func (s *EnvoyAlsServer) Close() error {
 
 func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAccessLogsServer) error {
 	s.marshaler.OrigName = true
+	log.Println("Started envoy access log stream")
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
 			return nil
 		}
 		if err != nil {
+			log.Printf("Failed to recieve istio access logs: %s\n", err.Error())
 			return err
 		}
 		switch entries := in.LogEntries.(type) {

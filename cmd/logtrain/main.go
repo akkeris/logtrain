@@ -157,7 +157,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 	var addedInput = false
 	// Check to see if we should add istio/envoy inputs
 	if os.Getenv("ENVOY") == "true" {
-		address := "0.0.0.0:"
+		address := ":"
 		if os.Getenv("ENVOY_PORT") != "" {
 			address = address + os.Getenv("ENVOY_PORT")
 		} else {
