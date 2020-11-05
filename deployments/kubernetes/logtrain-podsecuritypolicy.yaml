@@ -1,0 +1,20 @@
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+  labels:
+    app: logtrain
+    name: logtrain
+  name: logtrain
+spec:
+  allowPrivilegeEscalation: false
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  runAsUser:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny
+  allowedUnsafeSysctls:
+    - '*'

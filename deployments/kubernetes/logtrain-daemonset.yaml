@@ -58,11 +58,6 @@ spec:
             memory: 64Mi
         securityContext:
           privileged: true
-          sysctls:
-              - name: fs.inotify.max_user_instances
-                value: 2048
-              - name: user.max_inotify_instances
-                value: 2048
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -74,7 +69,12 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext: {}
+      securityContext:
+        sysctls:
+        - name: fs.inotify.max_user_instances
+          value: "2048"
+        - name: user.max_inotify_instances
+          value: "2048"
       serviceAccount: logtrain
       serviceAccountName: logtrain
       terminationGracePeriodSeconds: 30
