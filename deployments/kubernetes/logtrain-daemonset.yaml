@@ -54,8 +54,15 @@ spec:
         resources:
           limits:
             memory: 128Mi
+          requests:
+            memory: 64Mi
         securityContext:
           privileged: true
+          sysctls:
+              - name: fs.inotify.max_user_instances
+                value: 2048
+              - name: user.max_inotify_instances
+                value: 2048
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
