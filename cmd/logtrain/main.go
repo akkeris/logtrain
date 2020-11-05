@@ -24,8 +24,8 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
-	"syscall"
 	rpprof "runtime/pprof"
+	"syscall"
 	"time"
 )
 
@@ -74,12 +74,12 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 			}
 
 			if options.MemProfile != "" {
-		        f, err := os.Create(options.MemProfile)
-		        if err != nil {
-		            log.Fatal("Cannot create memory profile: " + err.Error())
-		        }
-		        rpprof.WriteHeapProfile(f)
-		    }
+				f, err := os.Create(options.MemProfile)
+				if err != nil {
+					log.Fatal("Cannot create memory profile: " + err.Error())
+				}
+				rpprof.WriteHeapProfile(f)
+			}
 			f()
 			os.Exit(0)
 		case <-ctx.Done():
@@ -323,13 +323,13 @@ func createHttpServer(port string) *httpServer {
 
 func runWithContext(ctx context.Context) error {
 	if options.CpuProfile != "" {
-        f, err := os.Create(options.CpuProfile)
-        if err != nil {
-            log.Fatal("Cannot create profile: " + err.Error())
-        }
-        rpprof.StartCPUProfile(f)
-        defer rpprof.StopCPUProfile()
-    }
+		f, err := os.Create(options.CpuProfile)
+		if err != nil {
+			log.Fatal("Cannot create profile: " + err.Error())
+		}
+		rpprof.StartCPUProfile(f)
+		defer rpprof.StopCPUProfile()
+	}
 	httpServer := createHttpServer(getOsOrDefault("HTTP_PORT", "9000"))
 	if os.Getenv("PROFILE") == "true" {
 		httpServer.mux.HandleFunc("/debug/pprof/", http.HandlerFunc(pprof.Index))
