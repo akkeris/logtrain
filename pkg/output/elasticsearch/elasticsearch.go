@@ -54,7 +54,9 @@ func Create(endpoint string) (*Syslog, error) {
 	if err != nil {
 		return nil, err
 	}
-	u.Path = u.Path + "/_bulk"
+	if strings.HasPrefix(u.Path, "/_bulk") == false {
+		u.Path = u.Path + "/_bulk"
+	}
 	return &Syslog{
 		endpoint: endpoint,
 		url:      *u,

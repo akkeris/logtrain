@@ -14,6 +14,18 @@ spec:
       labels:
         name: logtrain
     spec:
+      initContainers:
+        - name: init-sysctl
+          image: busybox
+          command:
+          - sysctl
+          - -w
+          - fs.inotify.max_user_instances=2048
+          - user.max_inotify_instances=2048
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            runAsNonRoot: False
       containers:
       - env:
         - name: NODE
@@ -39,7 +51,7 @@ spec:
           value: "true"
         - name: AKKERIS
           value: "true"
-        image: akkeris/logtrain:v0.0.7 # TODO add ability to auto-update this on release.
+        image: akkeris/logtrain:v0.0.8 # TODO add ability to auto-update this on release.
         imagePullPolicy: Always
         name: logtrain
         ports:
@@ -69,12 +81,7 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext:
-        sysctls:
-        - name: fs.inotify.max_user_instances
-          value: "2048"
-        - name: user.max_inotify_instances
-          value: "2048"
+      securityContext: {}
       serviceAccount: logtrain
       serviceAccountName: logtrain
       terminationGracePeriodSeconds: 30

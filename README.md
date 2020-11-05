@@ -28,11 +28,19 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
 
 ## Using Logtrain with Kubernetes
 
+### Running in Kubernetes
+
+Below is the recommended way of deploying Log Train. Note that this must run as a privileged container,
+so that it can read files from `/var/log/containers`. The daemonset also contains an initContainer that
+will change the sysctl `fs.inotify.max_user_instances` to `2048` on your nodes (usually from 128).
+
 ```
 kubectl apply -f ./deployments/kubernetes/logtrain-serviceaccount.yaml
 kubectl apply -f ./deployments/kubernetes/logtrain-service.yaml
 kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
 ```
+
+### Adding drains in Kubernetes
 
 Once deployed you can use the following annotations on deployments, daemonsets, statefulsets or replicasets to forward logs.
 

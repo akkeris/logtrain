@@ -95,9 +95,11 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 						oldDrains := strings.Split(annotationOld, ";")
 						newDrains := strings.Split(annotationNew, ";")
 						for _, dOld := range oldDrains {
+							dOld = strings.TrimSpace(dOld)
 							var found = false
 							for _, dNew := range newDrains {
-								if strings.ToLower(strings.TrimSpace(dOld)) == strings.ToLower(strings.TrimSpace(dNew)) {
+								dNew = strings.TrimSpace(dNew)
+								if strings.ToLower(dOld) == strings.ToLower(dNew) {
 									found = true
 								}
 							}
@@ -110,16 +112,18 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							}
 						}
 						for _, dNew := range newDrains {
+							dNew = strings.TrimSpace(dNew)
 							var found = false
 							for _, dOld := range oldDrains {
-								if strings.ToLower(strings.TrimSpace(dOld)) == strings.ToLower(strings.TrimSpace(dNew)) {
+								dOld = strings.TrimSpace(dOld)
+								if strings.ToLower(dOld) == strings.ToLower(dNew) {
 									found = true
 								}
 							}
 							if !found {
 								// add a new route as it wasn't found in the old set of routes
 								kds.add <- LogRoute{
-									Endpoint: strings.TrimSpace(dNew),
+									Endpoint: dNew,
 									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
 								}
 							}
