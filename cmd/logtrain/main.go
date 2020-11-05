@@ -98,7 +98,7 @@ func init() {
 func findDataSources() ([]storage.DataSource, error) {
 	ds := make([]storage.DataSource, 0)
 
-	if os.Getenv("KUBERNETES") == "true" {
+	if os.Getenv("KUBERNETES_DATASOURCE") == "true" {
 		k8sClient, err := getKubernetesClient(options.KubeConfig)
 		if err != nil {
 			log.Printf("Could not get kubernetes client [%s]: %s\n", options.KubeConfig, err.Error())

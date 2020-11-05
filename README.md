@@ -64,17 +64,30 @@ Explicitly set the tag when reading in logs from kuberntes, if not set this will
 
 * `HTTP_PORT` - The port to use for the http server, shared by any http (payload) and http (syslog) inputs.
 
-### Postgres
+### Postgres (datasource)
+
+Whether to watch a postgres database for information on where to foward logs to.
 
 * `POSTGRES` - set to `true`
 * `DATABASE_URL` - The database url to use to listen for drain changes.
 
+### Kubernetes (datasource)
+
+Whether to watch kubernetes deployments, statefulsets and daemonsets for annotations indicating
+where logs should be forwarded to.
+
+* `KUBERNETES_DATASOURCE` - set to `true`
+
 ### Kubernetes
 
+Whether to watch the `KUBERNETES_LOG_PATH` directory for pod logs and forward them.
+
 * `KUBERNETES` - set to `true`
-* `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs
+* `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs. Defaults to `/var/log/containers`
 
 ### Envoy/Istio
+
+Whether to open a gRPC access log stream end point for istio/envoy to stream http log traffic to.
 
 * `ENVOY` - set to `true`
 * `ENVOY_PORT` - The port number to listen for gRPC access log streams (default is `9001`)

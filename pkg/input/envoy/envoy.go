@@ -34,6 +34,8 @@ func stringMilliseconds(d time.Duration) string {
 	return fmt.Sprintf("%.2fms", d.Seconds()*1000)
 }
 
+// For more information on the HTTPAccessLogEntry structure see,
+// https://github.com/envoyproxy/go-control-plane/blob/master/envoy/data/accesslog/v2/accesslog.pb.go
 func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 	var code uint32 = 0
 	if envoyMsg.CommonProperties.ResponseFlags != nil && envoyMsg.CommonProperties.ResponseFlags.DownstreamConnectionTermination {
@@ -53,6 +55,10 @@ func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 	if envoyMsg.CommonProperties.GetTlsProperties() != nil {
 		origin = "origin=https://" + envoyMsg.CommonProperties.GetTlsProperties().TlsSniHostname + envoyMsg.Request.OriginalPath + " "
 	}
+
+
+	// TODO: Add https://github.com/envoyproxy/go-control-plane/blob/master/envoy/data/accesslog/v2/accesslog.pb.go#L652
+
 
 	ttlutxbyte, err := ptypes.Duration(envoyMsg.CommonProperties.TimeToLastUpstreamTxByte)
 	if err != nil {

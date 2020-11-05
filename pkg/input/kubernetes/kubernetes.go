@@ -173,8 +173,15 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 func dir(root string) []string {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if info != nil && info.IsDir() == false {
+		if err == nil && info != nil && info.IsDir() == false {
 			files = append(files, path)
+		} else if err == nil && info != nil && info.IsDir() == true {
+			if path != root {
+				return filepath.SkipDir
+			}
+		}
+		if err != nil {
+			log.Printf("Error while listing files: %s\n", err.Error())
 		}
 		return nil
 	})
@@ -199,7 +206,6 @@ func (handler *Kubernetes) Dial() error {
 	if handler.watcher != nil {
 		return errors.New("Dial may only be called once.")
 	}
-	log.Printf("Dial called %s\n", handler.path)
 	for _, file := range dir(handler.path) {
 		/* Seek the end of the file if we've just started,
 		 * if say we're erroring and restarting frequently we
@@ -207,11 +213,12 @@ func (handler *Kubernetes) Dial() error {
 		 * and rebroadcast the entire log contents
 		 */
 		if err := handler.add(file, io.SeekEnd); err != nil {
-			log.Printf("Error adding file: %s, Error: %s\n", file, err.Error())
+			log.Printf("Error watching file: %s, Error: %s\n", file, err.Error())
 		}
 	}
 	watcher, err := handler.watcherEventLoop()
 	if err != nil {
+		log.Printf("Error starting watcher event loop: %s\n", err.Error())
 		return err
 	}
 	handler.watcher = watcher
@@ -249,15 +256,16 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 }
 
 func (handler *Kubernetes) add(file string, ioSeek int) error {
-	config := follower.Config{
-		Offset: 0,
-		Whence: ioSeek,
-		Reopen: true,
-	}
 	// The filename has additional details we need.
 	details, err := kubeDetailsFromFileName(file)
 	if err != nil {
 		return err
+	}
+
+	config := follower.Config{
+		Offset: 0,
+		Whence: ioSeek,
+		Reopen: true,
 	}
 
 	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
@@ -352,7 +360,6 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 					return
 				}
 			case err := <-watcher.Errors:
-
 				if handler.closing {
 					return
 				}
