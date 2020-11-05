@@ -173,7 +173,7 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 func dir(root string) []string {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() == false {
+		if info != nil && info.IsDir() == false {
 			files = append(files, path)
 		}
 		return nil
@@ -199,13 +199,16 @@ func (handler *Kubernetes) Dial() error {
 	if handler.watcher != nil {
 		return errors.New("Dial may only be called once.")
 	}
+	log.Printf("Dial called %s\n", handler.path)
 	for _, file := range dir(handler.path) {
 		/* Seek the end of the file if we've just started,
 		 * if say we're erroring and restarting frequently we
 		 * do not want to start from the beginning of the log file
 		 * and rebroadcast the entire log contents
 		 */
-		handler.add(file, io.SeekEnd)
+		if err := handler.add(file, io.SeekEnd); err != nil {
+			log.Printf("Error adding file: %s, Error: %s\n", file, err.Error())
+		}
 	}
 	watcher, err := handler.watcherEventLoop()
 	if err != nil {
@@ -245,7 +248,7 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 	return nil, errors.New("invalid filename, no match given")
 }
 
-func (handler *Kubernetes) add(file string, ioSeek int) {
+func (handler *Kubernetes) add(file string, ioSeek int) error {
 	config := follower.Config{
 		Offset: 0,
 		Whence: ioSeek,
@@ -254,7 +257,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	// The filename has additional details we need.
 	details, err := kubeDetailsFromFileName(file)
 	if err != nil {
-		return
+		return err
 	}
 
 	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
@@ -268,7 +271,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	proc, err := follower.New(file, config)
 	if err != nil {
 		handler.Errors() <- err
-		return
+		return err
 	}
 	fw := fileWatcher{
 		follower: proc,
@@ -280,6 +283,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 	handler.followersMutex.Lock()
 	handler.followers[file] = fw
 	handler.followersMutex.Unlock()
+	log.Printf("[kuberntes] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 	go func() {
 		for {
 			select {
@@ -320,6 +324,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) {
 			}
 		}
 	}()
+	return nil
 }
 
 func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
@@ -347,6 +352,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 					return
 				}
 			case err := <-watcher.Errors:
+
 				if handler.closing {
 					return
 				}

@@ -156,25 +156,9 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 
 	// TODO: Check permissions of service account before we run...
 
-	// Watch replicasets
-	listWatchReplicaSets := cache.NewListWatchFromClient(rest, "replicasets", "", fields.Everything())
-	listWatchReplicaSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().ReplicaSets(meta.NamespaceAll).List(options)
-	}
-	listWatchReplicaSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().ReplicaSets(meta.NamespaceAll).Watch(meta.ListOptions{})
-	}
-	_, controllerReplicaSets := cache.NewInformer(
-		listWatchReplicaSets,
-		&apps.ReplicaSet{},
-		time.Second*0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    kds.addRouteFromObj,
-			DeleteFunc: kds.removeRouteFromObj,
-			UpdateFunc: kds.reviewUpdateFromObj,
-		},
-	)
-	go controllerReplicaSets.Run(kds.stop)
+	// Do not watch replicasets. They're rarely directly used and are an order of magnitude
+	// more resources to keep track of than deployments+statefulsets+daemonsets. Profiles caused
+	// this to go from 100k
 
 	// Watch deployments
 	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())

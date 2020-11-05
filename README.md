@@ -118,6 +118,13 @@ Note, the port is inherited from `HTTP_PORT`.
 
 * `AKKERIS=true` - for Akkeris formatting of output
 
+## Performance
+
+The logtrain has been tested to be below 64MB (avg 59MB) and < 100m (5%) 
+CPU for 52 pods on a node with 1500+ deployments being watched. For more pods per node
+or more deployments than the benchmark expect (and reset any limits/requests) for memory.
+
+While targeting a 64MB top limit, logtrain should have a limit of 128MB.
 
 ## Developing
 

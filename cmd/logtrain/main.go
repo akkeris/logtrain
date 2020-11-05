@@ -25,12 +25,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	rpprof "runtime/pprof"
 	"time"
 )
 
 var options struct {
+	CpuProfile string
+	MemProfile string
 	KubeConfig string
-	Port       int
 }
 
 type httpServer struct {
@@ -66,6 +68,18 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 	for {
 		select {
 		case <-term:
+			log.Printf("Exiting\n")
+			if options.CpuProfile != "" {
+				rpprof.StopCPUProfile()
+			}
+
+			if options.MemProfile != "" {
+		        f, err := os.Create(options.MemProfile)
+		        if err != nil {
+		            log.Fatal("Cannot create memory profile: " + err.Error())
+		        }
+		        rpprof.WriteHeapProfile(f)
+		    }
 			f()
 			os.Exit(0)
 		case <-ctx.Done():
@@ -75,7 +89,8 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 }
 
 func init() {
-	flag.IntVar(&options.Port, "port", 9000, "use '--port' option to specify the port for broker to listen on")
+	flag.StringVar(&options.CpuProfile, "cpuprofile", "", "write cpu profile to file")
+	flag.StringVar(&options.MemProfile, "memprofile", "", "write mem profile to file")
 	flag.StringVar(&options.KubeConfig, "kube-config", "", "specify the kube config path to be used")
 	flag.Parse()
 }
@@ -86,6 +101,7 @@ func findDataSources() ([]storage.DataSource, error) {
 	if os.Getenv("KUBERNETES") == "true" {
 		k8sClient, err := getKubernetesClient(options.KubeConfig)
 		if err != nil {
+			log.Printf("Could not get kubernetes client [%s]: %s\n", options.KubeConfig, err.Error())
 			return nil, err
 		}
 		kds, err := storage.CreateKubernetesDataSource(k8sClient)
@@ -298,14 +314,22 @@ func createHttpServer(port string) *httpServer {
 		server: &http.Server{
 			Addr:           ":" + port,
 			Handler:        mux,
-			ReadTimeout:    1 * time.Second,
-			WriteTimeout:   1 * time.Second,
+			ReadTimeout:    60 * time.Second,
+			WriteTimeout:   120 * time.Second, // Must be above 30 seconds for pprof.
 			MaxHeaderBytes: 1 << 20,
 		},
 	}
 }
 
 func runWithContext(ctx context.Context) error {
+	if options.CpuProfile != "" {
+        f, err := os.Create(options.CpuProfile)
+        if err != nil {
+            log.Fatal("Cannot create profile: " + err.Error())
+        }
+        rpprof.StartCPUProfile(f)
+        defer rpprof.StopCPUProfile()
+    }
 	httpServer := createHttpServer(getOsOrDefault("HTTP_PORT", "9000"))
 	if os.Getenv("PROFILE") == "true" {
 		httpServer.mux.HandleFunc("/debug/pprof/", http.HandlerFunc(pprof.Index))
@@ -321,6 +345,7 @@ func runWithContext(ctx context.Context) error {
 	} else if os.Getenv("METRICS") == "true" {
 		httpServer.mux.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
 	}
+
 	go httpServer.server.ListenAndServe()
 
 	ds, err := findDataSources()
