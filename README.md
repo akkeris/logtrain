@@ -139,6 +139,19 @@ or more deployments than the benchmark expect (and reset any limits/requests) fo
 
 While targeting a 64MB top limit, logtrain should have a limit of 128MB.
 
+## Troubleshooting
+
+### Too many open files error
+
+If you receive an error on startup with `too many files open` error message you'll need to increase
+the `fs.inotify.max_user_instances` and `user.max_inotify_instances`. These are generally set to
+`128` by default, depending how many pods are running this may be insufficient.
+
+```
+sysctl -w fs.inotify.max_user_instances=2048
+sysctl -w user.max_inotify_instances=2048
+```
+
 ## Developing
 
 ### Building Logtrain
