@@ -113,13 +113,17 @@ func (drain *Drain) Dial() error {
 
 func (drain *Drain) Close() error {
 	drain.stop <- struct{}{}
+	drain.mutex.Lock()
+	defer drain.mutex.Unlock()
+	var err error = nil
 	for _, conn := range drain.connections {
-		if err := conn.Close(); err != nil {
-			return err
+		if err = conn.Close(); err != nil {
+			drain.error(err)
 		}
 		drain.open--
 		drain.info(fmt.Sprintf("[drains] Closing connection to %s\n", drain.Endpoint))
 	}
+	drain.connections = make([]output.Output, 0)
 	return nil
 }
 
