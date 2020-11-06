@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 	"time"
+	"strings"
 )
 
 type TestHttpMessage struct {
@@ -78,7 +79,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"message\":\""+p.Generate(MaxLogSize)+"\" }")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
@@ -116,13 +117,13 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 			Time:     now,
 			Hostname: "localhost",
 			Tag:      "HttpSyslogChannelTest",
-			Message:  "Test Message",
+			Message:  "Test Message \"",
 		}
 		syslog.Packets() <- p
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"message\":\""+strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"")+"\" }\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}
@@ -146,7 +147,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
-			So(message.Body, ShouldEqual, "{\"create\":{ }}\n{ \"@timestamp\":"+p.Time.Format(packet.Rfc5424time)+", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
 		case error := <-syslog.Errors():
 			log.Fatal(error.Error())
 		}

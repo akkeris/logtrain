@@ -95,10 +95,11 @@ func (s *EnvoyAlsServer) Close() error {
 
 func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAccessLogsServer) error {
 	s.marshaler.OrigName = true
-	log.Println("Started envoy access log stream")
+	log.Println("[envoy] Started envoy access log stream")
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
+			log.Println("[envoy] Stopped envoy access log stream")
 			return nil
 		}
 		if err != nil {

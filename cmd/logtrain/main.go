@@ -171,7 +171,7 @@ func findDataSources() ([]storage.DataSource, error) {
 		}
 		listener := pq.NewListener(os.Getenv("DATABASE_URL"), 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
 			if err != nil {
-				log.Fatalf("Error in listener to postgres: %s\n", err.Error())
+				log.Fatalf("[main] Error in listener to postgres: %s\n", err.Error())
 			}
 		})
 		pds, err := storage.CreatePostgresDataSource(db, listener, true)
@@ -224,7 +224,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added envoy on port %s\n", getOsOrDefault("ENVOY_PORT", "9001"))
+		log.Printf("[main] Added envoy on port %s\n", getOsOrDefault("ENVOY_PORT", "9001"))
 	}
 
 	// Check to see if http events will be used as an input
@@ -241,7 +241,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added http endpoint %s for JSON syslog payloads\n", getOsOrDefault("HTTP_EVENTS_PATH", "/events"))
+		log.Printf("[main] Added http endpoint %s for JSON syslog payloads\n", getOsOrDefault("HTTP_EVENTS_PATH", "/events"))
 	}
 
 	// Check to see if syslog over http will be used as an input
@@ -258,7 +258,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added syslog over http on path %s \n", getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"))
+		log.Printf("[main] Added syslog over http on path %s \n", getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"))
 	}
 
 	// Check to see if syslog over tcp will be used.
@@ -274,7 +274,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added syslog over tcp on port %s \n", getOsOrDefault("SYSLOG_TCP_PORT", "9002"))
+		log.Printf("[main] Added syslog over tcp on port %s \n", getOsOrDefault("SYSLOG_TCP_PORT", "9002"))
 	}
 
 	// Check to see if syslog over udp will be used.
@@ -290,7 +290,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added syslog over udp on port %s \n", getOsOrDefault("SYSLOG_UDP_PORT", "9003"))
+		log.Printf("[main] Added syslog over udp on port %s \n", getOsOrDefault("SYSLOG_UDP_PORT", "9003"))
 	}
 
 	// Check to see if syslog over tls will be used.
@@ -315,7 +315,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added syslog over tcp+tls on port %s \n", getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
+		log.Printf("[main] Added syslog over tcp+tls on port %s \n", getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
 	}
 
 	// Check to see if we should add kubernetes as an input
@@ -335,7 +335,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 			return err
 		}
 		addedInput = true
-		log.Printf("Added kubernetes file watcher\n")
+		log.Printf("[main] Added kubernetes file watcher\n")
 	}
 
 	if !addedInput {
@@ -355,6 +355,8 @@ func printMetricsLoop(router *router.Router) {
 				syslogPressure.WithLabelValues(endpoint).Observe(metric.Pressure)
 				syslogErrors.WithLabelValues(endpoint).Observe(float64(metric.Errors))
 				syslogSent.WithLabelValues(endpoint).Observe(float64(metric.Sent))
+
+				// TODO: sanitize endpoint.
 			}
 			syslogDeadPackets.WithLabelValues("uniform").Observe(float64(router.DeadPackets()))
 			router.ResetMetrics()
@@ -429,10 +431,10 @@ func run() error {
 }
 
 func main() {
-	log.Printf("Starting\n")
+	log.Printf("[main] Starting\n")
 	if err := run(); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		log.Fatalln(err)
 	}
-	log.Printf("Exiting\n")
+	log.Printf("[main] Exiting\n")
 
 }

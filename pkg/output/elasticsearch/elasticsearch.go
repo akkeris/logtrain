@@ -7,10 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"strconv"
+	"os"
 	"time"
 )
 
 type Syslog struct {
+	node	string
+	index   string
 	url      url.URL
 	endpoint string
 	client   *http.Client
@@ -57,7 +61,17 @@ func Create(endpoint string) (*Syslog, error) {
 	if strings.HasPrefix(u.Path, "/_bulk") == false {
 		u.Path = u.Path + "/_bulk"
 	}
+	node := os.Getenv("NODE")
+	if node == "" {
+		node = "logtrain"
+	}
+	index := u.Query().Get("index")
+	if index != "" {
+		index = "logtrain"
+	}
 	return &Syslog{
+		node: node,
+		index: index,
 		endpoint: endpoint,
 		url:      *u,
 		client:   &http.Client{},
@@ -93,11 +107,11 @@ func (log *Syslog) loop() {
 	for {
 		select {
 		case p := <-log.packets:
-			payload = payload + "{\"create\":{ }}\n{ \"@timestamp\":" + p.Time.Format(rfc5424time) + ", \"message\":\"" + p.Generate(MaxLogSize) + "\" }\n"
+			payload = payload + "{\"create\":{ \"_id\": " + log.node + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + log.index + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
-				req.Header.Set("content-type", "application/json")
+				req.Header.Set("content-type", "application/x-ndjson")
 				if pwd, ok := log.url.User.Password(); ok {
 					if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
 						req.Header.Set("Authorization", "Bearer "+pwd)

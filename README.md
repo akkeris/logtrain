@@ -12,8 +12,8 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
 
 ## Drain Types
 
-* `es+https://user:password@host?[auth=apikey|bearer|basic]` (aliases, `elasticsearch://` and `es://`). The bearer token is taken from the password portion of the url. 
-* `es+http://user:password@host?[auth=apikey|bearer|basic]`
+* `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]` (aliases, `elasticsearch://` and `es://`). The bearer token is taken from the password portion of the url. 
+* `es+http://user:password@host?[auth=apikey|bearer|basic]` The bearer token is taken from the password portion of the url. 
 * `http://host/path`
 * `https://host/path`
 * `syslog+tls://host:port?[ca=]`
