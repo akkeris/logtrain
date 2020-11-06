@@ -93,6 +93,11 @@ func (drain *Drain) Errors() uint32 {
 	return drain.errors
 }
 
+func (drain *Drain) ResetMetrics() {
+	drain.sent = 0
+	drain.errors = 0
+}
+
 func (drain *Drain) Dial() error {
 	if drain.open != 0 {
 		return errors.New("Dial should not be called twice.")

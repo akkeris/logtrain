@@ -109,6 +109,19 @@ func (router *Router) Metrics() map[string]Metric {
 	return metrics
 }
 
+func (router *Router) DeadPackets() int {
+	return router.deadPacket
+}
+
+func (router *Router) ResetMetrics() {
+	for _, drains := range router.drainsByHost {
+		for _, drain := range drains {
+			drain.ResetMetrics()
+		}
+	}
+	router.deadPacket = 0
+}
+
 func (router *Router) Close() error {
 	router.stop <- struct{}{}
 	close(router.stop)

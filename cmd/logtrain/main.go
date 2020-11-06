@@ -15,6 +15,7 @@ import (
 	"github.com/akkeris/logtrain/pkg/input/syslogudp"
 	"github.com/akkeris/logtrain/pkg/router"
 	"github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -34,6 +35,49 @@ var options struct {
 	MemProfile string
 	KubeConfig string
 }
+
+var (
+	syslogConnections = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "logtrain_syslog_connections",
+			Help:       "Amount of syslog outbound connections.",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"syslog"},
+	)
+	syslogPressure = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "logtrain_syslog_pressure",
+			Help:       "The percentage of buffers that are full waiting to be sent.",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"syslog"},
+	)
+	syslogSent = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "logtrain_syslog_sent",
+			Help:       "The amount of packets sent via a syslog (successful or not).",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"syslog"},
+	)
+	syslogErrors = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "logtrain_syslog_errors",
+			Help:       "The amount of packets that could not be sent.",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"syslog"},
+	)
+	syslogDeadPackets = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:       "logtrain_syslog_deadpackets",
+			Help:       "The amount of packets received with no route.",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+		[]string{"service"},
+	)
+)
 
 type httpServer struct {
 	mux    *http.ServeMux
@@ -301,8 +345,13 @@ func printMetricsLoop(router *router.Router) {
 		case <-ticker.C:
 			metrics := router.Metrics()
 			for endpoint, metric := range metrics {
-				log.Printf("metrics endpoint=%s connections=%d maxconnections=%d pressure=%f sent=%d errors=%d", endpoint, metric.Connections, metric.MaxConnections, metric.Pressure, metric.Sent, metric.Errors)
+				syslogConnections.WithLabelValues(endpoint).Observe(float64(metric.Connections))
+				syslogPressure.WithLabelValues(endpoint).Observe(metric.Pressure)
+				syslogErrors.WithLabelValues(endpoint).Observe(float64(metric.Errors))
+				syslogSent.WithLabelValues(endpoint).Observe(float64(metric.Sent))
 			}
+			syslogDeadPackets.WithLabelValues("uniform").Observe(float64(router.DeadPackets()))
+			router.ResetMetrics()
 		}
 	}
 }
