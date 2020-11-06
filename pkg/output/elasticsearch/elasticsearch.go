@@ -65,10 +65,9 @@ func Create(endpoint string) (*Syslog, error) {
 	if node == "" {
 		node = "logtrain"
 	}
-	index := u.Query().Get("index")
 	return &Syslog{
 		node: node,
-		index: index,
+		index:  u.Query().Get("index"),
 		endpoint: endpoint,
 		url:      *u,
 		client:   &http.Client{},
@@ -106,7 +105,7 @@ func (log *Syslog) loop() {
 		case p := <-log.packets:
 			var index = log.index
 			if index == "" {
-				index = p.Hostname
+				index = "logtrain"
 			}
 			payload = payload + "{\"create\":{ \"_id\": " + log.node + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
 		case <-timer.C:
