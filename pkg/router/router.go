@@ -6,6 +6,7 @@ import (
 	"github.com/akkeris/logtrain/pkg/input"
 	"github.com/papertrail/remote_syslog2/syslog"
 	"reflect"
+	"sync"
 )
 
 /*
@@ -41,6 +42,7 @@ type Router struct {
 	inputs                map[string]input.Input
 	stickyPools           bool
 	maxConnections        uint32
+	mutex          		  *sync.Mutex
 	stop                  chan struct{}
 	reloop                chan struct{}
 	running               bool
@@ -57,6 +59,7 @@ func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnection
 		inputs:                make(map[string]input.Input, 0),
 		stickyPools:           stickyPools,
 		maxConnections:        maxConnections,
+		mutex:          	   &sync.Mutex{},
 		stop:                  make(chan struct{}, 1),
 		reloop:                make(chan struct{}, 1),
 		running:               false,
@@ -94,6 +97,8 @@ func (router *Router) Dial() error {
 }
 
 func (router *Router) Metrics() map[string]Metric {
+	router.mutex.Lock()
+	defer router.mutex.Unlock()
 	metrics := make(map[string]Metric, 0)
 	for host, drains := range router.drainsByHost {
 		for _, drain := range drains {
@@ -114,6 +119,8 @@ func (router *Router) DeadPackets() int {
 }
 
 func (router *Router) ResetMetrics() {
+	router.mutex.Lock()
+	defer router.mutex.Unlock()
 	for _, drains := range router.drainsByHost {
 		for _, drain := range drains {
 			drain.ResetMetrics()
@@ -145,6 +152,8 @@ func (router *Router) RemoveInput(id string) error {
 }
 
 func (router *Router) addRoute(r storage.LogRoute) {
+	router.mutex.Lock()
+	defer router.mutex.Unlock()
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
 		var found = false
 		for _, endpoint := range endpoints {
@@ -162,6 +171,8 @@ func (router *Router) addRoute(r storage.LogRoute) {
 }
 
 func (router *Router) removeRoute(r storage.LogRoute) {
+	router.mutex.Lock()
+	defer router.mutex.Unlock()
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
 		eps := make([]string, 0)
 		for _, e := range endpoints {
@@ -256,6 +267,8 @@ func (router *Router) writeLoop() {
 				continue
 			}
 			if packet, ok := value.Interface().(syslog.Packet); ok {
+
+				router.mutex.Lock()
 				if drains, ok := router.drainsByHost[packet.Hostname]; ok {
 					for _, drain := range drains {
 						select {
@@ -298,6 +311,7 @@ func (router *Router) writeLoop() {
 				} else {
 					router.deadPacket++
 				}
+				router.mutex.Unlock()
 			} else if chosen == 0 /* stop */ {
 				return
 			} else if chosen == 1 /* reloop */ {
