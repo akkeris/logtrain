@@ -124,7 +124,7 @@ func (drain *Drain) Close() error {
 		drain.info(fmt.Sprintf("[drains] Closing connection to %s\n", drain.Endpoint))
 	}
 	drain.connections = make([]output.Output, 0)
-	return nil
+	return err
 }
 
 func (drain *Drain) info(msg string) {
