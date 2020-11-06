@@ -137,6 +137,12 @@ func init() {
 	flag.StringVar(&options.MemProfile, "memprofile", "", "write mem profile to file")
 	flag.StringVar(&options.KubeConfig, "kube-config", "", "specify the kube config path to be used")
 	flag.Parse()
+	prometheus.MustRegister(syslogErrors)
+	prometheus.MustRegister(syslogSent)
+	prometheus.MustRegister(syslogPressure)
+	prometheus.MustRegister(syslogConnections)
+	prometheus.MustRegister(syslogDeadPackets)
+	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
 
 func findDataSources() ([]storage.DataSource, error) {
