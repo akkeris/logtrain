@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"os"
 	"time"
+	"fmt"
 )
 
 type Syslog struct {
@@ -107,25 +108,24 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload = payload + "{\"create\":{ \"_id\": " + log.node + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
+			payload = payload + "{\"create\":{ \"_id\": " + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
-				req.Header.Set("content-type", "application/json")
-				if pwd, ok := log.url.User.Password(); ok {
-					if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
-						req.Header.Set("Authorization", "Bearer "+pwd)
-					} else if strings.ToLower(log.url.Query().Get("auth")) == "apikey" {
-						req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
-					} else {
-						req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
-					}
-				}
 				if err != nil {
 					log.errors <- err
 				} else {
+					req.Header.Set("content-type", "application/json")
+					if pwd, ok := log.url.User.Password(); ok {
+						if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
+							req.Header.Set("Authorization", "Bearer "+pwd)
+						} else if strings.ToLower(log.url.Query().Get("auth")) == "apikey" {
+							req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
+						} else {
+							req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
+						}
+					}
 					resp, err := log.client.Do(req)
-					payload = ""
 					if err != nil {
 						log.errors <- err
 					} else {
@@ -134,6 +134,7 @@ func (log *Syslog) loop() {
 							log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
 						}
 					}
+					payload = ""
 				}
 			}
 		case <-log.stop:
