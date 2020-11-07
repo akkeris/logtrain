@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"os"
 	"time"
-	"fmt"
 )
 
 type Syslog struct {
