@@ -12,10 +12,20 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
 
 ## Drain Types
 
-* `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]` (aliases, `elasticsearch://` and `es://`). The bearer token is taken from the password portion of the url. 
-* `es+http://user:password@host?[auth=apikey|bearer|basic]` The bearer token is taken from the password portion of the url. 
+### Elastic Search
+
+* `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
+* `es+http://user:password@host?[auth=apikey|bearer|basic]` 
+
+The bearer token is taken from the password portion of the url. 
+
+### Http
+
 * `http://host/path`
 * `https://host/path`
+
+### Syslog
+
 * `syslog+tls://host:port?[ca=]`
 * `syslog+http://host:port`
 * `syslog+https://host:port`
@@ -42,7 +52,7 @@ kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
 
 ### Adding drains in Kubernetes
 
-Once deployed you can use the following annotations on deployments, daemonsets, statefulsets or replicasets to forward logs.
+Once deployed you can use the following annotations on deployments, daemonsets or statefulsets to forward logs.
 
 ```
 logtrain.akkeris.io/drains
