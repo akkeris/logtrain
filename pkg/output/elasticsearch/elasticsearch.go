@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"os"
 	"time"
+	"fmt"
 )
 
 type Syslog struct {
@@ -107,7 +108,7 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload = payload + "{\"create\":{ \"_id\": " + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
+			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
@@ -133,8 +134,8 @@ func (log *Syslog) loop() {
 							log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
 						}
 					}
-					payload = ""
 				}
+				payload = ""
 			}
 		case <-log.stop:
 			close(log.stop)
