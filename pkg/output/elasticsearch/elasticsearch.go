@@ -105,13 +105,13 @@ func (log *Syslog) loop() {
 		case p := <-log.packets:
 			var index = log.index
 			if index == "" {
-				index = "logtrain"
+				index = p.Hostname
 			}
 			payload = payload + "{\"create\":{ \"_id\": " + log.node + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
-				req.Header.Set("content-type", "application/x-ndjson")
+				req.Header.Set("content-type", "application/json")
 				if pwd, ok := log.url.User.Password(); ok {
 					if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
 						req.Header.Set("Authorization", "Bearer "+pwd)
