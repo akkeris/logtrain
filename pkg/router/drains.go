@@ -174,7 +174,11 @@ func (drain *Drain) connect() error {
 		for {
 			select {
 			case err := <-conn.Errors():
-				drain.error(err)
+				if err == nil {
+					// the connection has closed the errors channel.
+				} else {
+					drain.error(err)
+				}
 			case <-drain.stop:
 				return
 			}

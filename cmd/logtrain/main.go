@@ -120,7 +120,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 			if options.MemProfile != "" {
 				f, err := os.Create(options.MemProfile)
 				if err != nil {
-					log.Fatal("Cannot create memory profile: " + err.Error())
+					debug.Fatalf("Cannot create memory profile: %s\n", err.Error())
 				}
 				rpprof.WriteHeapProfile(f)
 			}
@@ -151,7 +151,7 @@ func findDataSources() ([]storage.DataSource, error) {
 	if os.Getenv("KUBERNETES_DATASOURCE") == "true" {
 		k8sClient, err := getKubernetesClient(options.KubeConfig)
 		if err != nil {
-			log.Printf("Could not get kubernetes client [%s]: %s\n", options.KubeConfig, err.Error())
+			debug.Errorf("Could not get kubernetes client [%s]: %s\n", options.KubeConfig, err.Error())
 			return nil, err
 		}
 		kds, err := storage.CreateKubernetesDataSource(k8sClient)
@@ -171,7 +171,7 @@ func findDataSources() ([]storage.DataSource, error) {
 		}
 		listener := pq.NewListener(os.Getenv("DATABASE_URL"), 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
 			if err != nil {
-				log.Fatalf("[main] Error in listener to postgres: %s\n", err.Error())
+				debug.Fatalf("[main] Error in listener to postgres: %s\n", err.Error())
 			}
 		})
 		pds, err := storage.CreatePostgresDataSource(db, listener, true)
@@ -433,8 +433,7 @@ func run() error {
 func main() {
 	log.Printf("[main] Starting\n")
 	if err := run(); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-		log.Fatalln(err)
+		debug.Fatalf("%s\n", err.Error())
 	}
 	log.Printf("[main] Exiting\n")
-
 }
