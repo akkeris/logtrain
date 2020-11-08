@@ -200,7 +200,13 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
-	go controllerDeployments.Run(kds.stop)
+	deployments, err := kube.AppsV1().Deployments(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range deployments.Items {
+		kds.addRouteFromObj(item)
+	}
 
 	// Watch daemonsets
 	listWatchDaemonSets := cache.NewListWatchFromClient(rest, "daemonsets", "", fields.Everything())
@@ -220,7 +226,13 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
-	go controllerDaemonSets.Run(kds.stop)
+	daemonsets, err := kube.AppsV1().DaemonSets(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range daemonsets.Items {
+		kds.addRouteFromObj(item)
+	}
 
 	// Watch statefulsets
 	listWatchStatefulSets := cache.NewListWatchFromClient(rest, "statefulsets", "", fields.Everything())
@@ -240,6 +252,17 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 			UpdateFunc: kds.reviewUpdateFromObj,
 		},
 	)
+	statefulsets, err := kube.AppsV1().StatefulSets(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range statefulsets.Items {
+		kds.addRouteFromObj(item)
+	}
+
+
+	go controllerDeployments.Run(kds.stop)
+	go controllerDaemonSets.Run(kds.stop)
 	go controllerStatefulSets.Run(kds.stop)
 
 	return &kds, nil
