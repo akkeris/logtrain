@@ -14,6 +14,7 @@ require (
 	github.com/papertrail/go-tail v0.0.0-20180509224916-973c153b0431
 	github.com/papertrail/remote_syslog2 v0.0.0-20190614180052-09062fc2b02a
 	github.com/prometheus/client_golang v1.8.0
+	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/trevorlinton/go-tail v0.0.0-20201104232242-76c5e9bf73b9
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect

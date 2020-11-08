@@ -260,6 +260,7 @@ func TestDrains(t *testing.T) {
 		}
 		So(testAmount, ShouldEqual, received)
 		drain.Close()
+		drain.Close() // ensure calling it twice does not error out.
 		s.Close()
 	})
 	Convey("Ensure we clean up.", t, func() {

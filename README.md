@@ -15,7 +15,7 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
 ### Elastic Search
 
 * `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
-* `es+http://user:password@host?[auth=apikey|bearer|basic]` 
+* `es+http://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
 
 The bearer token is taken from the password portion of the url. 
 

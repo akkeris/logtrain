@@ -2,6 +2,7 @@ package router
 
 import (
 	"errors"
+	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/akkeris/logtrain/pkg/input"
 	"github.com/papertrail/remote_syslog2/syslog"
@@ -83,8 +84,10 @@ func (router *Router) Dial() error {
 			for {
 				select {
 				case route := <-db.AddRoute():
+					debug.Debugf("Received add %s->%s\n", route.Hostname, route.Endpoint)
 					router.addRoute(route)
 				case route := <-db.RemoveRoute():
+					debug.Debugf("Received remove %s->%s\n", route.Hostname, route.Endpoint)
 					router.removeRoute(route)
 				case <-router.stop:
 					return
@@ -130,6 +133,7 @@ func (router *Router) ResetMetrics() {
 }
 
 func (router *Router) Close() error {
+	debug.Debugf("Closing router...\n")
 	router.stop <- struct{}{}
 	close(router.stop)
 	close(router.reloop)
@@ -137,6 +141,7 @@ func (router *Router) Close() error {
 }
 
 func (router *Router) AddInput(in input.Input, id string) error {
+	debug.Debugf("Adding input to router %s...\n", id)
 	if _, ok := router.inputs[id]; ok {
 		return errors.New("This input id already exists.")
 	}
@@ -146,8 +151,11 @@ func (router *Router) AddInput(in input.Input, id string) error {
 }
 
 func (router *Router) RemoveInput(id string) error {
-	delete(router.inputs, id)
-	router.reloop <- struct{}{}
+	debug.Debugf("Removing input from router %s...\n", id)
+	if _, ok := router.inputs[id]; ok {
+		delete(router.inputs, id)
+		router.reloop <- struct{}{}
+	}
 	return nil
 }
 
@@ -163,6 +171,8 @@ func (router *Router) addRoute(r storage.LogRoute) {
 		}
 		if !found {
 			router.endpointsByHost[r.Hostname] = append(router.endpointsByHost[r.Hostname], r.Endpoint)
+		} else {
+			debug.Debugf("addRoute called but route already exists %s->%s\n", r.Hostname, r.Endpoint)
 		}
 	} else {
 		router.endpointsByHost[r.Hostname] = make([]string, 0)
@@ -185,6 +195,8 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 		} else {
 			delete(router.endpointsByHost, r.Hostname)
 		}
+	} else {
+		debug.Debugf("Remove route was called but route didn't exist in endpointsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 	if drains, ok := router.drainsByHost[r.Hostname]; ok {
 		drs := make([]*Drain, 0)
@@ -198,6 +210,8 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 		} else {
 			delete(router.drainsByHost, r.Hostname)
 		}
+	} else {
+		debug.Debugf("Remove route was called but route didn't exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 
 	var foundUsedEndpoint = false
@@ -209,8 +223,14 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 		}
 	}
 	if foundUsedEndpoint == false {
-		router.drainByEndpoint[r.Endpoint].Close()
-		delete(router.drainByEndpoint, r.Endpoint)
+		if drain, ok := router.drainByEndpoint[r.Endpoint]; ok {
+			drain.Close()
+			delete(router.drainByEndpoint, r.Endpoint)
+		} else {
+			debug.Debugf("A drain requested to be removed was not present in drainByEndpoint but was in drainsByHost %s->%s\n", r.Hostname, r.Endpoint)
+		}
+	} else {
+		debug.Debugf("Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 }
 
@@ -267,7 +287,6 @@ func (router *Router) writeLoop() {
 				continue
 			}
 			if packet, ok := value.Interface().(syslog.Packet); ok {
-
 				router.mutex.Lock()
 				if drains, ok := router.drainsByHost[packet.Hostname]; ok {
 					for _, drain := range drains {

@@ -3,6 +3,7 @@ package router
 import (
 	"errors"
 	"fmt"
+	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/pkg/output"
 	"github.com/papertrail/remote_syslog2/syslog"
 	"hash/crc32"
@@ -99,6 +100,7 @@ func (drain *Drain) ResetMetrics() {
 }
 
 func (drain *Drain) Dial() error {
+	debug.Debugf("Dailing drain %s...\n", drain.Endpoint)
 	if drain.open != 0 {
 		return errors.New("Dial should not be called twice.")
 	}
@@ -117,6 +119,7 @@ func (drain *Drain) Dial() error {
 }
 
 func (drain *Drain) Close() error {
+	debug.Debugf("Closing drain to %s\n", drain.Endpoint)
 	drain.stop <- struct{}{}
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
@@ -140,6 +143,7 @@ func (drain *Drain) info(msg string) {
 }
 
 func (drain *Drain) error(msg error) {
+	debug.Debugf("Drain %s had error %s\n", drain.Endpoint, msg.Error())
 	drain.errors++
 	select {
 	case drain.Error <- msg:
@@ -148,6 +152,7 @@ func (drain *Drain) error(msg error) {
 }
 
 func (drain *Drain) connect() error {
+	debug.Debugf("Drain %s connecting...\n", drain.Endpoint)
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
 	conn, err := output.Create(drain.Endpoint)
