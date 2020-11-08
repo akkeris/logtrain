@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
+	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	envoy "github.com/akkeris/logtrain/pkg/input/envoy"
 	http_events "github.com/akkeris/logtrain/pkg/input/http"
