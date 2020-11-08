@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"github.com/akkeris/logtrain/internal/debug"
 	"os"
 	"strings"
 	"time"
@@ -55,16 +56,39 @@ func (kds *KubernetesDataSource) Close() error {
 	return nil
 }
 
+func (kds *KubernetesDataSource) addRoute(host string, drain string) {
+	debug.Debugf("[kubernetes] adding route %s->%s\n", host, drain)
+	route := LogRoute{
+		Endpoint: strings.TrimSpace(drain),
+		Hostname: host,
+	}
+	kds.routes = append(kds.routes, route)
+	kds.add <- route
+}
+
+func (kds *KubernetesDataSource) removeRoute(host string, drain string) {
+	debug.Debugf("[kubernetes] removing route %s->%s\n", host, drain)
+	route := LogRoute{
+		Endpoint: strings.TrimSpace(drain),
+		Hostname: host,
+	}
+	newRoutes := make([]LogRoute, 0)
+	for _, r := range kds.routes {
+		if route.Endpoint != r.Endpoint && route.Hostname != r.Hostname {
+			newRoutes = append(newRoutes, r)
+		}
+	}
+	kds.routes = newRoutes
+	kds.remove <- route
+}
+
 func (kds *KubernetesDataSource) addRouteFromObj(obj interface{}) {
 	if kobj, ok := obj.(meta.Object); ok {
 		if annotation, ok := kobj.GetAnnotations()[DrainAnnotationKey]; ok {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
 			for _, drain := range drains {
-				kds.add <- LogRoute{
-					Endpoint: strings.TrimSpace(drain),
-					Hostname: host,
-				}
+				kds.addRoute(host, drain)
 			}
 		}
 	}
@@ -76,10 +100,7 @@ func (kds *KubernetesDataSource) removeRouteFromObj(obj interface{}) {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
 			for _, drain := range drains {
-				kds.remove <- LogRoute{
-					Endpoint: strings.TrimSpace(drain),
-					Hostname: host,
-				}
+				kds.removeRoute(host, drain)
 			}
 		}
 	}
@@ -105,10 +126,9 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							}
 							if !found {
 								// remove route as it was not found in the new set of routes
-								kds.remove <- LogRoute{
-									Endpoint: strings.TrimSpace(dOld),
-									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
-								}
+								host := GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts)
+								drain := strings.TrimSpace(dOld)
+								kds.removeRoute(host, drain)
 							}
 						}
 						for _, dNew := range newDrains {
@@ -122,10 +142,8 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							}
 							if !found {
 								// add a new route as it wasn't found in the old set of routes
-								kds.add <- LogRoute{
-									Endpoint: dNew,
-									Hostname: GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts),
-								}
+								host := GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts)
+								kds.addRoute(host, dNew)
 							}
 						}
 					}
