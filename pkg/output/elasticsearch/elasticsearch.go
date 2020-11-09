@@ -6,15 +6,15 @@ import (
 	"github.com/papertrail/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
-	"strings"
-	"strconv"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Syslog struct {
-	node	string
-	index   string
+	node     string
+	index    string
 	url      url.URL
 	endpoint string
 	client   *http.Client
@@ -66,8 +66,8 @@ func Create(endpoint string) (*Syslog, error) {
 		node = "logtrain"
 	}
 	return &Syslog{
-		node: node,
-		index:  u.Query().Get("index"),
+		node:     node,
+		index:    u.Query().Get("index"),
 		endpoint: endpoint,
 		url:      *u,
 		client:   &http.Client{},

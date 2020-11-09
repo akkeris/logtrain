@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
-	"strings"
 )
 
 type TestHttpMessage struct {

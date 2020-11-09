@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/akkeris/logtrain/internal/debug"
 	apps "k8s.io/api/apps/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -8,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"github.com/akkeris/logtrain/internal/debug"
 	"os"
 	"strings"
 	"time"
@@ -259,7 +259,6 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 	for _, item := range statefulsets.Items {
 		kds.addRouteFromObj(item)
 	}
-
 
 	go controllerDeployments.Run(kds.stop)
 	go controllerDaemonSets.Run(kds.stop)

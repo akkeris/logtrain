@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"encoding/json"
 	"errors"
+	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/fsnotify/fsnotify"
 	"github.com/papertrail/remote_syslog2/syslog"
@@ -10,7 +11,6 @@ import (
 	"io"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -126,7 +126,7 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 	parts := strings.Split(obj.GetName(), "-")
 	top, err := getTopLevelObject(kube, obj)
 	if err != nil {
-		log.Printf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
+		debug.Errorf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
 		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
 	}
 	if host, ok := top.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
@@ -181,7 +181,7 @@ func dir(root string) []string {
 			}
 		}
 		if err != nil {
-			log.Printf("Error while listing files: %s\n", err.Error())
+			debug.Errorf("Error while listing files: %s\n", err.Error())
 		}
 		return nil
 	})
@@ -213,12 +213,12 @@ func (handler *Kubernetes) Dial() error {
 		 * and rebroadcast the entire log contents
 		 */
 		if err := handler.add(file, io.SeekEnd); err != nil {
-			log.Printf("Error watching file: %s, Error: %s\n", file, err.Error())
+			debug.Errorf("Error watching file: %s, due to: %s\n", file, err.Error())
 		}
 	}
 	watcher, err := handler.watcherEventLoop()
 	if err != nil {
-		log.Printf("Error starting watcher event loop: %s\n", err.Error())
+		debug.Errorf("Error starting watcher event loop: %s\n", err.Error())
 		return err
 	}
 	handler.watcher = watcher
@@ -272,7 +272,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	hostAndTag := deriveHostnameFromPod(details.Pod, details.Namespace, useAkkerisHosts)
 	pod, err := handler.kube.CoreV1().Pods(details.Namespace).Get(details.Pod, api.GetOptions{})
 	if err != nil {
-		log.Printf("Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
+		debug.Errorf("Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
 	} else {
 		hostAndTag = getHostnameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
@@ -291,7 +291,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	handler.followersMutex.Lock()
 	handler.followers[file] = fw
 	handler.followersMutex.Unlock()
-	log.Printf("[kuberntes] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+	debug.Infof("[kuberntes] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 	go func() {
 		for {
 			select {
@@ -348,21 +348,28 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 			select {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Create == fsnotify.Create {
+					debug.Debugf("[kubernetes] Watcher loop saw a new create event: %s\n", event.Name)
 					handler.add(event.Name, io.SeekStart)
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-					select {
-					case handler.followers[event.Name].stop <- struct{}{}:
-					default:
+					if follower, ok := handler.followers[event.Name]; ok {
+						debug.Debugf("[kubernetes] Watcher loop a remove event: %s\n", event.Name)
+						select {
+						case follower.stop <- struct{}{}:
+						default:
+						}
+						handler.followersMutex.Lock()
+						delete(handler.followers, event.Name)
+						handler.followersMutex.Unlock()
+					} else {
+						debug.Debugf("[kubernetes] Wathcer loop could not find follower %s to remove!\n", event.Name)
 					}
-					handler.followersMutex.Lock()
-					delete(handler.followers, event.Name)
-					handler.followersMutex.Unlock()
 					return
 				}
 			case err := <-watcher.Errors:
 				if handler.closing {
 					return
 				}
+				debug.Debugf("[kubernetes] Watcher loop encountered an error: %s\n", err.Error())
 				select {
 				case handler.Errors() <- err:
 				default:

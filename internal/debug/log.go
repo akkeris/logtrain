@@ -1,9 +1,9 @@
 package debug
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
-	"io/ioutil"
 )
 
 var loggerInfo *log.Logger

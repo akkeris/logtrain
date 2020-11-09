@@ -2,7 +2,6 @@ package router
 
 import (
 	"errors"
-	"fmt"
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/pkg/output"
 	"github.com/papertrail/remote_syslog2/syslog"
@@ -100,7 +99,7 @@ func (drain *Drain) ResetMetrics() {
 }
 
 func (drain *Drain) Dial() error {
-	debug.Debugf("Dailing drain %s...\n", drain.Endpoint)
+	debug.Debugf("[drains] Dailing drain %s...\n", drain.Endpoint)
 	if drain.open != 0 {
 		return errors.New("Dial should not be called twice.")
 	}
@@ -119,56 +118,40 @@ func (drain *Drain) Dial() error {
 }
 
 func (drain *Drain) Close() error {
-	debug.Debugf("Closing drain to %s\n", drain.Endpoint)
+	debug.Debugf("[drains] Closing drain to %s\n", drain.Endpoint)
 	drain.stop <- struct{}{}
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
 	var err error = nil
 	for _, conn := range drain.connections {
+		debug.Debugf("[drains] Closing connection to %s\n", drain.Endpoint)
 		if err = conn.Close(); err != nil {
-			drain.error(err)
+			debug.Debugf("[drains] Received error trying to close connection to %s: %s\n", drain.Endpoint, err.Error())
 		}
 		drain.open--
-		drain.info(fmt.Sprintf("[drains] Closing connection to %s\n", drain.Endpoint))
 	}
 	drain.connections = make([]output.Output, 0)
 	return err
 }
 
-func (drain *Drain) info(msg string) {
-	select {
-	case drain.Info <- msg:
-	default:
-	}
-}
-
-func (drain *Drain) error(msg error) {
-	debug.Debugf("Drain %s had error %s\n", drain.Endpoint, msg.Error())
-	drain.errors++
-	select {
-	case drain.Error <- msg:
-	default:
-	}
-}
-
 func (drain *Drain) connect() error {
-	debug.Debugf("Drain %s connecting...\n", drain.Endpoint)
+	debug.Debugf("[drains] Drain %s connecting...\n", drain.Endpoint)
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
 	conn, err := output.Create(drain.Endpoint)
 	if err != nil {
-		drain.error(err)
+		debug.Errorf("[drains] Received an error attempting to create endpoint %s: %s\n", drain.Endpoint, err.Error())
 		return err
 	}
 	if err := conn.Dial(); err != nil {
-		drain.error(err)
+		debug.Errorf("[drains] Received an error attempting to dial %s: %s\n", drain.Endpoint, err.Error())
 		return err
 	}
 
 	drain.transportPools = conn.Pools()
 	drain.connections = append(drain.connections, conn)
 	drain.open++
-	drain.info(fmt.Sprintf("[drains] Opening new connection to %s\n", drain.Endpoint))
+	debug.Debugf("[drains] Opening new connection to %s\n", drain.Endpoint)
 
 	go func() {
 		for {
@@ -177,9 +160,10 @@ func (drain *Drain) connect() error {
 				if err == nil {
 					// the connection has closed the errors channel.
 				} else {
-					drain.error(err)
+					debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
 				}
 			case <-drain.stop:
+				debug.Debugf("[drains] Received stop message for drain %s\n", drain.Endpoint)
 				return
 			}
 		}
@@ -204,7 +188,7 @@ func (drain *Drain) loopRoundRobin() {
 			drain.connections[drain.sent%drain.open].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.Endpoint, drain.open, drain.pressure*100))
+				debug.Debugf("[drains] Increasing pool size %s to %d because back pressure was %f%%\n", drain.Endpoint, drain.open, drain.pressure*100)
 				go drain.connect()
 			}
 			drain.mutex.Unlock()
@@ -224,7 +208,7 @@ func (drain *Drain) loopSticky() {
 			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				drain.info(fmt.Sprintf("[drains] Increasing pool size %s to %d because back pressure was %f%%", drain.Endpoint, drain.open, drain.pressure*100))
+				debug.Debugf("[drains] Increasing pool size %s to %d because back pressure was %f%%\n", drain.Endpoint, drain.open, drain.pressure*100)
 				go drain.connect()
 			}
 			drain.mutex.Unlock()

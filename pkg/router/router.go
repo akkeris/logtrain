@@ -43,7 +43,7 @@ type Router struct {
 	inputs                map[string]input.Input
 	stickyPools           bool
 	maxConnections        uint32
-	mutex          		  *sync.Mutex
+	mutex                 *sync.Mutex
 	stop                  chan struct{}
 	reloop                chan struct{}
 	running               bool
@@ -60,7 +60,7 @@ func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnection
 		inputs:                make(map[string]input.Input, 0),
 		stickyPools:           stickyPools,
 		maxConnections:        maxConnections,
-		mutex:          	   &sync.Mutex{},
+		mutex:                 &sync.Mutex{},
 		stop:                  make(chan struct{}, 1),
 		reloop:                make(chan struct{}, 1),
 		running:               false,
@@ -332,6 +332,7 @@ func (router *Router) writeLoop() {
 				}
 				router.mutex.Unlock()
 			} else if chosen == 0 /* stop */ {
+				debug.Debugf("[router] writeLoop exiting.\n")
 				return
 			} else if chosen == 1 /* reloop */ {
 				remaining = 0
