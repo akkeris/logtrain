@@ -354,6 +354,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 		debug.Errorf("[kubernetes/input] Cannot create file watcher for [%s]: %s\n", handler.path, err.Error())
 		return nil, err
 	}
+
 	if err := watcher.Add(handler.path); err != nil {
 		debug.Errorf("[kubernetes/input] Cannot add [%s] path to file watcher: %s\n", handler.path, err.Error())
 		return nil, err
