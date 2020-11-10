@@ -200,7 +200,8 @@ func (handler *Kubernetes) Close() error {
 		case v.stop <- struct{}{}:
 		default:
 		}
-		v.follower.Close()
+		// calling this can hang as it sends a blocking call to a channel.
+		// v.follower.Close()
 	}
 	close(handler.packets)
 	close(handler.errors)
@@ -300,6 +301,8 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	debug.Infof("[kubernetes/input] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 	go func() {
 		for {
+			// TODO: investigate if this is better served by using a range instead of select such as in:
+			// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
 			select {
 			case line, ok := <-fw.follower.Lines():
 				if ok == true {
