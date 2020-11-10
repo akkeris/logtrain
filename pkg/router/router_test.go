@@ -165,6 +165,12 @@ func TestRouter(t *testing.T) {
 
 		So(router.RemoveInput("someid"), ShouldBeNil)
 	})
+	Convey("Ensure we can get metrics", t, func() {
+		metrics := router.Metrics()
+		So(metrics, ShouldNotBeNil)
+		So(router.DeadPackets(), ShouldEqual, 1)
+		router.ResetMetrics()
+	})
 	Convey("Ensure we clean up.", t, func() {
 		So(router.Close(), ShouldBeNil)
 		server.Close()
