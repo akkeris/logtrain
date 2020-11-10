@@ -1,8 +1,8 @@
 package syslogudp
 
 import (
-	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	syslogserver "gopkg.in/mcuadros/go-syslog.v2"
 	"log"
 	"testing"

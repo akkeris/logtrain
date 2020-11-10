@@ -2,8 +2,8 @@ package router
 
 import (
 	"github.com/akkeris/logtrain/internal/storage"
-	"github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"testing"
 	"time"

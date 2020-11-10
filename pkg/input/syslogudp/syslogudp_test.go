@@ -1,8 +1,8 @@
 package syslogudp
 
 import (
-	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"testing"
 	"time"

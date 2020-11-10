@@ -1,8 +1,8 @@
 package http
 
 import (
-	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	"io/ioutil"
 	"log"
 	"net/http"

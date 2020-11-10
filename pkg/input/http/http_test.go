@@ -3,8 +3,8 @@ package http
 import (
 	"encoding/json"
 	"github.com/akkeris/logtrain/pkg/output/packet"
-	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"net/http"
 	"strings"

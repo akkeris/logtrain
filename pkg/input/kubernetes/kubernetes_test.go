@@ -2,8 +2,8 @@ package kubernetes
 
 import (
 	"github.com/akkeris/logtrain/internal/storage"
-	"github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
