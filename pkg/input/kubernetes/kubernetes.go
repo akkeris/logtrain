@@ -192,15 +192,19 @@ func dir(root string) []string {
 }
 
 func (handler *Kubernetes) Close() error {
-	debug.Errorf("[kubernetes/input]: Close was called\n")
+	debug.Infof("[kubernetes/input]: Close was called\n")
 	handler.closing = true
 	handler.watcher.Close()
 	for _, v := range handler.followers {
+		select {
+		case v.stop <- struct{}{}:
+		default:
+		}
 		v.follower.Close()
 	}
 	close(handler.packets)
 	close(handler.errors)
-	debug.Errorf("[kubernetes/input]: Closed\n")
+	debug.Infof("[kubernetes/input]: Closed\n")
 	return nil
 }
 
@@ -333,7 +337,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 					}
 				}
 			case <-fw.stop:
-				debug.Errorf("[kubernetes/input]: Received message to stop watcher for %s.", file)
+				debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
 				return
 			}
 		}
@@ -365,16 +369,18 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 						case follower.stop <- struct{}{}:
 						default:
 						}
+						follower.follower.Close()
 						handler.followersMutex.Lock()
 						delete(handler.followers, event.Name)
 						handler.followersMutex.Unlock()
+						debug.Debugf("[kubernetes/input] Successfully processed remove event: %s\n", event.Name)
 					} else {
-						debug.Debugf("[kubernetes/input] Wathcer loop could not find follower %s to remove!\n", event.Name)
+						debug.Debugf("[kubernetes/input] Watcher loop could not find follower %s to remove!\n", event.Name)
 					}
 					return
 				}
 			case err := <-watcher.Errors:
-				if handler.closing {
+				if handler.closing || err == nil {
 					return
 				}
 				debug.Debugf("[kubernetes/input] Watcher loop encountered an error: %s\n", err.Error())

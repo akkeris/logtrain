@@ -160,6 +160,7 @@ func (router *Router) RemoveInput(id string) error {
 }
 
 func (router *Router) addRoute(r storage.LogRoute) {
+	debug.Debugf("[router] addRoute called %s->%s...\n", r.Hostname, r.Endpoint)
 	router.mutex.Lock()
 	defer router.mutex.Unlock()
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {
@@ -181,6 +182,7 @@ func (router *Router) addRoute(r storage.LogRoute) {
 }
 
 func (router *Router) removeRoute(r storage.LogRoute) {
+	debug.Debugf("[router] removeRoute called %s->%s...\n", r.Hostname, r.Endpoint)
 	router.mutex.Lock()
 	defer router.mutex.Unlock()
 	if endpoints, ok := router.endpointsByHost[r.Hostname]; ok {

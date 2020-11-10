@@ -104,6 +104,7 @@ func (drain *Drain) Dial() error {
 		return errors.New("Dial should not be called twice.")
 	}
 	if err := drain.connect(); err != nil {
+		debug.Debugf("[drains] a call to connect resulted in an error: %s\n", err.Error())
 		return err
 	}
 
@@ -157,11 +158,13 @@ func (drain *Drain) connect() error {
 		for {
 			select {
 			case err := <-conn.Errors():
-				if err == nil {
-					// the connection has closed the errors channel.
-				} else {
+				if err != nil {
 					debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
 					drain.errors++
+				} else {
+					debug.Debugf("[drains] Received a nil on error channel (assuming it closed). %s\n", drain.Endpoint)
+					// The error channel was closed, stop watching.
+					return
 				}
 			case <-drain.stop:
 				debug.Debugf("[drains] Received stop message for drain %s\n", drain.Endpoint)

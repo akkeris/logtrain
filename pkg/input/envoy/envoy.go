@@ -3,6 +3,7 @@ package envoy
 import (
 	"errors"
 	"fmt"
+	"github.com/akkeris/logtrain/internal/debug"
 	v2data "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	"github.com/golang/protobuf/jsonpb"
@@ -10,7 +11,6 @@ import (
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"google.golang.org/grpc"
 	"io"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -95,15 +95,15 @@ func (s *EnvoyAlsServer) Close() error {
 
 func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAccessLogsServer) error {
 	s.marshaler.OrigName = true
-	log.Println("[envoy] Started envoy access log stream")
+	debug.Infof("[envoy] Started envoy access log stream\n")
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
-			log.Println("[envoy] Stopped envoy access log stream")
+			debug.Infof("[envoy] Stopped envoy access log stream\n")
 			return nil
 		}
 		if err != nil {
-			log.Printf("Failed to recieve istio access logs: %s\n", err.Error())
+			debug.Infof("Failed to recieve istio access logs: %s\n", err.Error())
 			return err
 		}
 		switch entries := in.LogEntries.(type) {

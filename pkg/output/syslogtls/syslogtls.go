@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
+	"github.com/akkeris/logtrain/internal/debug"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"net/url"
 	"strings"
@@ -61,14 +62,17 @@ func Create(endpoint string) (*Syslog, error) {
 }
 
 func (log *Syslog) Dial() error {
+	debug.Debugf("[syslog+tls/output]: Dial called for %s\n", log.endpoint)
 	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, log.roots, time.Second*4, time.Second*4, MaxLogSize)
 	if err != nil {
+		debug.Debugf("[syslog+tls/output]: Dial encountered an error on %s: %s\n", log.endpoint, err.Error())
 		return err
 	}
 	log.logger = dest
 	return nil
 }
 func (log *Syslog) Close() error {
+	debug.Debugf("[syslog+tls/output]: Close called for %s\n", log.endpoint)
 	return log.logger.Close()
 }
 func (log *Syslog) Pools() bool {
