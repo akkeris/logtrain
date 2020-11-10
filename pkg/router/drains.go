@@ -162,8 +162,7 @@ func (drain *Drain) connect() error {
 					debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
 					drain.errors++
 				} else {
-					debug.Debugf("[drains] Received a nil on error channel (assuming it closed). %s\n", drain.Endpoint)
-					// The error channel was closed, stop watching.
+					debug.Debugf("[drains] Received a nil on error channel (assuming it closed...). %s\n", drain.Endpoint)
 					return
 				}
 			case <-drain.stop:

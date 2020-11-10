@@ -173,7 +173,7 @@ func (router *Router) addRoute(r storage.LogRoute) {
 		if !found {
 			router.endpointsByHost[r.Hostname] = append(router.endpointsByHost[r.Hostname], r.Endpoint)
 		} else {
-			debug.Debugf("addRoute called but route already exists %s->%s\n", r.Hostname, r.Endpoint)
+			debug.Debugf("[router] addRoute called but route already exists %s->%s\n", r.Hostname, r.Endpoint)
 		}
 	} else {
 		router.endpointsByHost[r.Hostname] = make([]string, 0)
@@ -198,7 +198,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 			delete(router.endpointsByHost, r.Hostname)
 		}
 	} else {
-		debug.Debugf("Remove route was called but route didn't exist in endpointsByHost %s->%s...\n", r.Hostname, r.Endpoint)
+		debug.Debugf("[router] Remove route was called but route didn't exist in endpointsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 	if drains, ok := router.drainsByHost[r.Hostname]; ok {
 		drs := make([]*Drain, 0)
@@ -213,7 +213,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 			delete(router.drainsByHost, r.Hostname)
 		}
 	} else {
-		debug.Debugf("Remove route was called but route didn't exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
+		debug.Debugf("[router] Remove route was called but route didn't exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 
 	var foundUsedEndpoint = false
@@ -229,10 +229,10 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 			drain.Close()
 			delete(router.drainByEndpoint, r.Endpoint)
 		} else {
-			debug.Debugf("A drain requested to be removed was not present in drainByEndpoint but was in drainsByHost %s->%s\n", r.Hostname, r.Endpoint)
+			debug.Debugf("[router] A drain requested to be removed was not present in drainByEndpoint but was in drainsByHost %s->%s\n", r.Hostname, r.Endpoint)
 		}
 	} else {
-		debug.Debugf("Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
+		debug.Debugf("[router] Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
 }
 
