@@ -7,7 +7,7 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"google.golang.org/grpc"
 	"io"
 	"log"

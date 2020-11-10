@@ -11,7 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
 	"io"
 	"log"

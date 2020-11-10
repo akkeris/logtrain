@@ -17,6 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/trevorlinton/go-tail v0.0.0-20201104232242-76c5e9bf73b9
+	github.com/trevorlinton/remote_syslog2 v0.0.0-20180123153244-7044b53a0b9c
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.33.0
 	google.golang.org/protobuf v1.24.0

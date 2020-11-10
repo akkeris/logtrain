@@ -382,6 +382,8 @@ github.com/trevorlinton/go-tail v0.0.0-20201015160030-6f89038cc22c h1:6EdrDc7GPY
 github.com/trevorlinton/go-tail v0.0.0-20201015160030-6f89038cc22c/go.mod h1:NBq5kk/ec8hQIW7+fJp7zNF64eFvKFYDTIFAD/pAj84=
 github.com/trevorlinton/go-tail v0.0.0-20201104232242-76c5e9bf73b9 h1:62/hA/V4mWLpONHxrtlR+fEmQ7GMx/ChicMrfxqN67I=
 github.com/trevorlinton/go-tail v0.0.0-20201104232242-76c5e9bf73b9/go.mod h1:NBq5kk/ec8hQIW7+fJp7zNF64eFvKFYDTIFAD/pAj84=
+github.com/trevorlinton/remote_syslog2 v0.0.0-20180123153244-7044b53a0b9c h1:bg9jA74bW3hi+9a18y0ZFFkGMI6YGhzHUkrTlbBFH4A=
+github.com/trevorlinton/remote_syslog2 v0.0.0-20180123153244-7044b53a0b9c/go.mod h1:YlMwP7RYXkq5oT4uwzM9+MsNa6hNtRrjXze/GU/4zmw=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=

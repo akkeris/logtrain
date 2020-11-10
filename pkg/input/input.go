@@ -1,7 +1,7 @@
 package input
 
 import (
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
 type Input interface {

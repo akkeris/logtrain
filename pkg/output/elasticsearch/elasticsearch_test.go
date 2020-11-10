@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"encoding/base64"
 	"github.com/akkeris/logtrain/pkg/output/packet"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"log"

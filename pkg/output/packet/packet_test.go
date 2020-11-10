@@ -2,7 +2,7 @@ package packet
 
 import (
 	"encoding/json"
-	syslog2 "github.com/papertrail/remote_syslog2/syslog"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"

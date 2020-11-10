@@ -3,7 +3,7 @@ package packet
 import (
 	"encoding/json"
 	"errors"
-	"github.com/papertrail/remote_syslog2/syslog"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"strconv"
 	"time"
 )

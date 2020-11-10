@@ -5,7 +5,7 @@ import (
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/akkeris/logtrain/pkg/input"
-	"github.com/papertrail/remote_syslog2/syslog"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"reflect"
 	"sync"
 )
@@ -84,10 +84,10 @@ func (router *Router) Dial() error {
 			for {
 				select {
 				case route := <-db.AddRoute():
-					debug.Debugf("Received add %s->%s\n", route.Hostname, route.Endpoint)
+					debug.Debugf("[router] Received add %s->%s\n", route.Hostname, route.Endpoint)
 					router.addRoute(route)
 				case route := <-db.RemoveRoute():
-					debug.Debugf("Received remove %s->%s\n", route.Hostname, route.Endpoint)
+					debug.Debugf("[router] Received remove %s->%s\n", route.Hostname, route.Endpoint)
 					router.removeRoute(route)
 				case <-router.stop:
 					return
@@ -133,7 +133,7 @@ func (router *Router) ResetMetrics() {
 }
 
 func (router *Router) Close() error {
-	debug.Debugf("Closing router...\n")
+	debug.Debugf("[router] Closing router...\n")
 	router.stop <- struct{}{}
 	close(router.stop)
 	close(router.reloop)
@@ -141,7 +141,7 @@ func (router *Router) Close() error {
 }
 
 func (router *Router) AddInput(in input.Input, id string) error {
-	debug.Debugf("Adding input to router %s...\n", id)
+	debug.Debugf("[router] Adding input to router %s...\n", id)
 	if _, ok := router.inputs[id]; ok {
 		return errors.New("This input id already exists.")
 	}
@@ -151,7 +151,7 @@ func (router *Router) AddInput(in input.Input, id string) error {
 }
 
 func (router *Router) RemoveInput(id string) error {
-	debug.Debugf("Removing input from router %s...\n", id)
+	debug.Debugf("[router] Removing input from router %s...\n", id)
 	if _, ok := router.inputs[id]; ok {
 		delete(router.inputs, id)
 		router.reloop <- struct{}{}
@@ -335,6 +335,7 @@ func (router *Router) writeLoop() {
 				debug.Debugf("[router] writeLoop exiting.\n")
 				return
 			} else if chosen == 1 /* reloop */ {
+				debug.Debugf("[router] writeLoop relooping.\n")
 				remaining = 0
 				break
 			}

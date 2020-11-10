@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/pkg/output"
-	"github.com/papertrail/remote_syslog2/syslog"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"hash/crc32"
 	"sync"
 )
@@ -161,6 +161,7 @@ func (drain *Drain) connect() error {
 					// the connection has closed the errors channel.
 				} else {
 					debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
+					drain.errors++
 				}
 			case <-drain.stop:
 				debug.Debugf("[drains] Received stop message for drain %s\n", drain.Endpoint)

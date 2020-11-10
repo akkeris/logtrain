@@ -6,7 +6,7 @@ import (
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/fsnotify/fsnotify"
-	"github.com/papertrail/remote_syslog2/syslog"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"github.com/trevorlinton/go-tail/follower"
 	"io"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,7 +126,7 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 	parts := strings.Split(obj.GetName(), "-")
 	top, err := getTopLevelObject(kube, obj)
 	if err != nil {
-		debug.Errorf("Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
+		debug.Errorf("[kubernetes/input]: Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
 		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
 	}
 	if host, ok := top.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
@@ -181,7 +181,7 @@ func dir(root string) []string {
 			}
 		}
 		if err != nil {
-			debug.Errorf("Error while listing files: %s\n", err.Error())
+			debug.Errorf("[kubernetes/input]: Error while listing files: %s\n", err.Error())
 		}
 		return nil
 	})
@@ -192,6 +192,7 @@ func dir(root string) []string {
 }
 
 func (handler *Kubernetes) Close() error {
+	debug.Errorf("[kubernetes/input]: Close was called\n")
 	handler.closing = true
 	handler.watcher.Close()
 	for _, v := range handler.followers {
@@ -199,6 +200,7 @@ func (handler *Kubernetes) Close() error {
 	}
 	close(handler.packets)
 	close(handler.errors)
+	debug.Errorf("[kubernetes/input]: Closed\n")
 	return nil
 }
 
@@ -213,12 +215,12 @@ func (handler *Kubernetes) Dial() error {
 		 * and rebroadcast the entire log contents
 		 */
 		if err := handler.add(file, io.SeekEnd); err != nil {
-			debug.Errorf("Error watching file: %s, due to: %s\n", file, err.Error())
+			debug.Errorf("[kubernetes/input]: Error watching file: %s, due to: %s\n", file, err.Error())
 		}
 	}
 	watcher, err := handler.watcherEventLoop()
 	if err != nil {
-		debug.Errorf("Error starting watcher event loop: %s\n", err.Error())
+		debug.Errorf("[kubernetes/input]: Error starting watcher event loop: %s\n", err.Error())
 		return err
 	}
 	handler.watcher = watcher
@@ -291,7 +293,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	handler.followersMutex.Lock()
 	handler.followers[file] = fw
 	handler.followersMutex.Unlock()
-	debug.Infof("[kuberntes] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+	debug.Infof("[kubernetes/input] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 	go func() {
 		for {
 			select {
@@ -320,14 +322,18 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 					}
 				} else {
 					if fw.follower.Err() != nil {
+						debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, fw.follower.Err().Error())
 						// track errors with the lines, but don't report anything.
 						// TODO: should we do more? we shouldnt report this on
 						// the kubernetes error handler as one corrupted file could make
 						// the entire input handler look broken. Brainstorm on this.
 						fw.errors++
+					} else {
+						debug.Errorf("[kubernetes/input]: Error following file %s: unknown error.", file)
 					}
 				}
 			case <-fw.stop:
+				debug.Errorf("[kubernetes/input]: Received message to stop watcher for %s.", file)
 				return
 			}
 		}
@@ -338,9 +344,11 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
+		debug.Errorf("[kubernetes/input] Cannot create file watcher for [%s]: %s\n", handler.path, err.Error())
 		return nil, err
 	}
 	if err := watcher.Add(handler.path); err != nil {
+		debug.Errorf("[kubernetes/input] Cannot add [%s] path to file watcher: %s\n", handler.path, err.Error())
 		return nil, err
 	}
 	go func() {
@@ -348,11 +356,11 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 			select {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					debug.Debugf("[kubernetes] Watcher loop saw a new create event: %s\n", event.Name)
+					debug.Debugf("[kubernetes/input] Watcher loop saw a new create event: %s\n", event.Name)
 					handler.add(event.Name, io.SeekStart)
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					if follower, ok := handler.followers[event.Name]; ok {
-						debug.Debugf("[kubernetes] Watcher loop a remove event: %s\n", event.Name)
+						debug.Debugf("[kubernetes/input] Watcher loop a remove event: %s\n", event.Name)
 						select {
 						case follower.stop <- struct{}{}:
 						default:
@@ -361,7 +369,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 						delete(handler.followers, event.Name)
 						handler.followersMutex.Unlock()
 					} else {
-						debug.Debugf("[kubernetes] Wathcer loop could not find follower %s to remove!\n", event.Name)
+						debug.Debugf("[kubernetes/input] Wathcer loop could not find follower %s to remove!\n", event.Name)
 					}
 					return
 				}
@@ -369,7 +377,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 				if handler.closing {
 					return
 				}
-				debug.Debugf("[kubernetes] Watcher loop encountered an error: %s\n", err.Error())
+				debug.Debugf("[kubernetes/input] Watcher loop encountered an error: %s\n", err.Error())
 				select {
 				case handler.Errors() <- err:
 				default:

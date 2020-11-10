@@ -3,7 +3,7 @@ package syslogudp
 import (
 	"errors"
 	server "github.com/mcuadros/go-syslog"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"time"
 )
 

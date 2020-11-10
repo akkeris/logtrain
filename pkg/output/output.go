@@ -8,7 +8,7 @@ import (
 	syslogtcp "github.com/akkeris/logtrain/pkg/output/syslogtcp"
 	syslogtls "github.com/akkeris/logtrain/pkg/output/syslogtls"
 	syslogudp "github.com/akkeris/logtrain/pkg/output/syslogudp"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
 type Output interface {

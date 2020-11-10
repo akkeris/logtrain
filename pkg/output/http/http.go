@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/akkeris/logtrain/pkg/output/packet"
-	syslog "github.com/papertrail/remote_syslog2/syslog"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
 	"strings"
