@@ -269,14 +269,14 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 		return err
 	}
 
-	seekinfo := tail.SeekInfo{
-		Offset: 0,
-		Whence: ioSeek,
-	}
 	config := tail.Config{
 		Follow: true,
-		Location: &seekinfo,
+		Location: &tail.SeekInfo{
+			Offset: 0,
+			Whence: ioSeek,
+		},
 		ReOpen: true,
+		Logger: debug.LoggerDebug,
 	}
 
 	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
