@@ -27,6 +27,7 @@ func TestJsonHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 	go s.ListenAndServe()
+	time.Sleep(time.Second)
 
 	Convey("Ensure nothing blows up on the http handler stubs", t, func() {
 		So(handler.Dial(), ShouldBeNil)
