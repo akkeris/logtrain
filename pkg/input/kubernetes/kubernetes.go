@@ -200,8 +200,6 @@ func (handler *Kubernetes) Close() error {
 		case v.stop <- struct{}{}:
 		default:
 		}
-		// calling this can hang as it sends a blocking call to a channel.
-		// v.follower.Close()
 	}
 	close(handler.packets)
 	close(handler.errors)
