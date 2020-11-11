@@ -62,6 +62,7 @@ func TestEnvoyGrpcInput(t *testing.T) {
 							},
 							ProtocolVersion: v2data.HTTPAccessLogEntry_HTTP2,
 							Request: &v2data.HTTPRequestProperties{
+								Path:                "/fee",
 								RequestMethod:       core.RequestMethod_POST,
 								Authority:           "authority",
 								ForwardedFor:        "1.1.1.1",
@@ -92,7 +93,7 @@ func TestEnvoyGrpcInput(t *testing.T) {
 			So(message.Facility, ShouldEqual, 0)
 			So(message.Hostname, ShouldEqual, "name.namespace")
 			So(message.Tag, ShouldEqual, "envoy")
-			So(message.Message, ShouldEqual, "bytes=600 request_size=300 response_size=300 method=POST request_id=x-request-id fwd=1.1.1.1 authority=authority origin=https://www.example.com protocol=http2 tls=TLSv1_2 status=200 connect=1000.00ms service=1000.00ms total=1000.00ms")
+			So(message.Message, ShouldEqual, "bytes=600 request_size=300 response_size=300 method=POST request_id=x-request-id fwd=1.1.1.1 authority=authority origin=https://www.example.com protocol=http2 tls=TLSv1_2 status=200 connect=1000.00ms service=1000.00ms total=1000.00ms path=/fee")
 		case <-envoy.Errors():
 			log.Fatal("This shouldnt have been reached (error path).")
 		default:

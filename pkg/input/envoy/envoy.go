@@ -83,7 +83,8 @@ func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 		"status=" + strconv.Itoa(int(code)) + " " +
 		"connect=" + stringMilliseconds(ttlutxbyte) + " " +
 		"service=" + stringMilliseconds(ttlurxbyte) + " " +
-		"total=" + stringMilliseconds(ttldtxbyte)
+		"total=" + stringMilliseconds(ttldtxbyte) + " " + 
+		"path=" + envoyMsg.Request.Path
 }
 
 func (s *EnvoyAlsServer) Close() error {
