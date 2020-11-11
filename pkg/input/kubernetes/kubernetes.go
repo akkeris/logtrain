@@ -366,6 +366,11 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					debug.Debugf("[kubernetes/input] Watcher loop saw a new create event: %s\n", event.Name)
 					handler.add(event.Name, io.SeekStart)
+				} else if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Chmod == fsnotify.Chmod || event.Op&fsnotify.Rename == fsnotify.Rename {
+					if _, ok := handler.followers[event.Name]; !ok {
+						debug.Debugf("[kubernetes/input] Watcher loop saw a write/chmod/rename event for a new file: %s\n", event.Name)
+						handler.add(event.Name, io.SeekStart)
+					}
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					if follower, ok := handler.followers[event.Name]; ok {
 						debug.Debugf("[kubernetes/input] Watcher loop a remove event: %s\n", event.Name)
