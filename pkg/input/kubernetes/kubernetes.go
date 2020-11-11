@@ -6,7 +6,7 @@ import (
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/fsnotify/fsnotify"
-	"github.com/trevorlinton/go-tail/follower"
+	"github.com/influxdata/tail"
 	"github.com/trevorlinton/remote_syslog2/syslog"
 	"io"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +36,7 @@ type kubeDetails struct {
 
 type fileWatcher struct {
 	errors   uint32
-	follower *follower.Follower
+	follower *tail.Tail
 	hostname string
 	stop     chan struct{}
 	tag      string
@@ -269,10 +269,14 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 		return err
 	}
 
-	config := follower.Config{
+	seekinfo := tail.SeekInfo{
 		Offset: 0,
 		Whence: ioSeek,
-		Reopen: true,
+	}
+	config := tail.Config{
+		Follow: true,
+		Location: &seekinfo,
+		ReOpen: true,
 	}
 
 	useAkkerisHosts := os.Getenv("AKKERIS") == "true"
@@ -283,7 +287,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	} else {
 		hostAndTag = getHostnameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
-	proc, err := follower.New(file, config)
+	proc, err := tail.TailFile(file, config)
 	if err != nil {
 		handler.Errors() <- err
 		return err
@@ -304,10 +308,10 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 			// TODO: investigate if this is better served by using a range instead of select such as in:
 			// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
 			select {
-			case line, ok := <-fw.follower.Lines():
-				if ok == true {
+			case line := <-fw.follower.Lines:
+				if line.Err == nil {
 					var data kubeLine
-					if err := json.Unmarshal([]byte(line.String()), &data); err != nil {
+					if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
 						// track errors with the lines, but don't report anything.
 						// TODO: should we do more? we shouldnt report this on
 						// the kubernetes error handler as one corrupted file could make
@@ -328,18 +332,16 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 						}
 					}
 				} else {
-					if fw.follower.Err() != nil {
-						debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, fw.follower.Err().Error())
-						// track errors with the lines, but don't report anything.
-						// TODO: should we do more? we shouldnt report this on
-						// the kubernetes error handler as one corrupted file could make
-						// the entire input handler look broken. Brainstorm on this.
-						fw.errors++
-					} else {
-						debug.Errorf("[kubernetes/input]: Error following file %s: unknown error.", file)
-					}
+					debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
+					// track errors with the lines, but don't report anything.
+					// TODO: should we do more? we shouldnt report this on
+					// the kubernetes error handler as one corrupted file could make
+					// the entire input handler look broken. Brainstorm on this.
+					fw.errors++
 				}
 			case <-fw.stop:
+				fw.follower.Stop()
+				fw.follower.Cleanup()
 				debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
 				return
 			}
@@ -373,7 +375,6 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 						case follower.stop <- struct{}{}:
 						default:
 						}
-						follower.follower.Close()
 						handler.followersMutex.Lock()
 						delete(handler.followers, event.Name)
 						handler.followersMutex.Unlock()

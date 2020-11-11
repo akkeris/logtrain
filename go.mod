@@ -7,6 +7,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.9.7
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/protobuf v1.4.3
+	github.com/influxdata/tail v1.0.0
 	github.com/lib/pq v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/mcuadros/go-syslog v2.3.0+incompatible
