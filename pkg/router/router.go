@@ -298,21 +298,28 @@ func (router *Router) writeLoop() {
 						}
 					}
 				} else if endpoints, ok := router.endpointsByHost[packet.Hostname]; ok {
+					debug.Debugf("[router] No drain exists for endpoint host %s, looking for endpoints...\n", packet.Hostname)
 					drains = make([]*Drain, 0)
 					for _, endpoint := range endpoints {
+						debug.Debugf("[router] Looking to reuse or create drain for %s->%s\n", packet.Hostname, endpoint)
 						// Check if an existing route is already using this endpoint and get its
 						// drain, if not create a new drain for this.
 						if drain, ok := router.drainByEndpoint[endpoint]; ok {
+							debug.Debugf("[router] Existing drain for %s found, reusing it for host %s\n", endpoint, packet.Hostname)
 							router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
 							drains = append(drains, drain)
 						} else {
+							debug.Debugf("[router] Creating new drain to %s, using it for host %s\n", endpoint, packet.Hostname)
 							drain, err := Create(endpoint, router.maxConnections, router.stickyPools)
 							if err != nil {
+								debug.Errorf("[router] Error creating new drain to %s, for host %s: %s\n", endpoint, packet.Hostname, err.Error())
 								router.drainsFailedToConnect[endpoint] = true
 							} else {
 								if err := drain.Dial(); err != nil {
+									debug.Errorf("[router] Error dailing new drain to %s, for host %s: %s\n", endpoint, packet.Hostname, err.Error())
 									router.drainsFailedToConnect[endpoint] = true
 								} else {
+									debug.Errorf("[router] Successfully created new drain to %s, for host %s\n", endpoint, packet.Hostname)
 									router.drainByEndpoint[endpoint] = drain
 									router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
 									drains = append(drains, drain)
