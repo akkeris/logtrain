@@ -365,23 +365,25 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					debug.Debugf("[kubernetes/input] Watcher loop saw a new create event: %s\n", event.Name)
-					handler.add(event.Name, io.SeekStart)
+					go handler.add(event.Name, io.SeekStart)
 				} else if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Chmod == fsnotify.Chmod || event.Op&fsnotify.Rename == fsnotify.Rename {
 					if _, ok := handler.followers[event.Name]; !ok {
 						debug.Debugf("[kubernetes/input] Watcher loop saw a write/chmod/rename event for a new file: %s\n", event.Name)
-						handler.add(event.Name, io.SeekStart)
+						go handler.add(event.Name, io.SeekStart)
 					}
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 					if follower, ok := handler.followers[event.Name]; ok {
 						debug.Debugf("[kubernetes/input] Watcher loop a remove event: %s\n", event.Name)
-						select {
-						case follower.stop <- struct{}{}:
-						default:
-						}
-						handler.followersMutex.Lock()
-						delete(handler.followers, event.Name)
-						handler.followersMutex.Unlock()
-						debug.Debugf("[kubernetes/input] Successfully processed remove event: %s\n", event.Name)
+						go func() {
+							select {
+							case follower.stop <- struct{}{}:
+							default:
+							}
+							handler.followersMutex.Lock()
+							delete(handler.followers, event.Name)
+							handler.followersMutex.Unlock()
+							debug.Debugf("[kubernetes/input] Successfully processed remove event: %s\n", event.Name)
+						}()
 					} else {
 						debug.Debugf("[kubernetes/input] Watcher loop could not find follower %s to remove!\n", event.Name)
 					}
