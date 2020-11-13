@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/trevorlinton/remote_syslog2/syslog"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,7 +22,7 @@ func (p Packet) MarshalJSON() ([]byte, error) {
 		"\"hostname\":\"" + p.Hostname + "\"," +
 		"\"tag\":\"" + p.Tag + "\"," +
 		"\"time\":\"" + p.Time.Format(Rfc5424time) + "\"," +
-		"\"message\":\"" + p.Message + "\"" +
+		"\"message\":\"" + strings.ReplaceAll(p.Message, "\"", "\\\"") + "\"" +
 		"}"), nil
 }
 

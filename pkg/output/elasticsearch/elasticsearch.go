@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
@@ -124,9 +125,13 @@ func (log *Syslog) loop() {
 					if err != nil {
 						log.errors <- err
 					} else {
+						body, err := ioutil.ReadAll(resp.Body)
+						if err != nil {
+							body = []byte{}
+						}
 						resp.Body.Close()
 						if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
-							log.errors <- errors.New("invalid response from endpoint: " + resp.Status)
+							log.errors <- errors.New("invalid response from endpoint: " + resp.Status + " " + string(body))
 						}
 					}
 				}
