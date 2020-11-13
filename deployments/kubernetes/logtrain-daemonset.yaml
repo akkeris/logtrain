@@ -60,7 +60,7 @@ spec:
           value: "true"
         - name: DEBUG
           value: "true"
-        image: akkeris/logtrain:v0.0.45 # TODO add ability to auto-update this on release.
+        image: akkeris/logtrain:v0.0.46 # TODO add ability to auto-update this on release.
         imagePullPolicy: Always
         name: logtrain
         ports:
