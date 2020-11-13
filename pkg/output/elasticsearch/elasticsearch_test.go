@@ -80,7 +80,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0  }")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
@@ -148,7 +148,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
-			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0  }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }\n")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
