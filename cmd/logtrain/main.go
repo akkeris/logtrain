@@ -345,7 +345,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 	return nil
 }
 
-func printMetricsLoop(router *router.Router) {
+func prometheusMetricsLoop(router *router.Router) {
 	ticker := time.NewTicker(time.Minute * 5)
 	for {
 		select {
@@ -420,7 +420,7 @@ func runWithContext(ctx context.Context) error {
 	if err := addInputsToRouter(router, httpServer); err != nil {
 		return err
 	}
-	printMetricsLoop(router) // This never returns
+	prometheusMetricsLoop(router) // This never returns
 	return nil
 }
 

@@ -12,7 +12,7 @@ import (
 
 /*
  * Responsibilities:
- ? - Determining if a output/drain is misbehaving and temporarily stopping traffic to it.
+ TODO - Determining if a output/drain is misbehaving and temporarily stopping traffic to it.
  * - A single point for incoming packets from various inputs.
  * - Manages opening one drain per destination - on-demand - based on incoming traffic and routes
  * - Measuring and receiving metrics (and reporting them).
@@ -141,21 +141,21 @@ func (router *Router) Close() error {
 }
 
 func (router *Router) AddInput(in input.Input, id string) error {
-	debug.Debugf("[router] Adding input to router %s...\n", id)
 	if _, ok := router.inputs[id]; ok {
 		return errors.New("This input id already exists.")
 	}
 	router.inputs[id] = in
 	router.reloop <- struct{}{}
+	debug.Debugf("[router] Adding input to router %s...\n", id)
 	return nil
 }
 
 func (router *Router) RemoveInput(id string) error {
-	debug.Debugf("[router] Removing input from router %s...\n", id)
 	if _, ok := router.inputs[id]; ok {
 		delete(router.inputs, id)
 		router.reloop <- struct{}{}
 	}
+	debug.Debugf("[router] Removing input from router %s...\n", id)
 	return nil
 }
 
