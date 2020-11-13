@@ -22,7 +22,7 @@ func (p Packet) MarshalJSON() ([]byte, error) {
 		"\"hostname\":\"" + p.Hostname + "\"," +
 		"\"tag\":\"" + p.Tag + "\"," +
 		"\"time\":\"" + p.Time.Format(Rfc5424time) + "\"," +
-		"\"message\":\"" + strings.ReplaceAll(p.Message, "\"", "\\\"") + "\"" +
+		"\"message\":\"" + strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p.Message, "\"", "\\\""), "\n", "\\n"), "\r", "\\r"), "\x00", "") + "\"" +
 		"}"), nil
 }
 

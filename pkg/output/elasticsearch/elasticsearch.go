@@ -30,6 +30,10 @@ var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https:/
 
 const MaxLogSize int = 99990
 
+func cleanString(str string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(str, "\"", "\\\""), "\n", "\\n"), "\r", "\\r"), "\x00", "")
+}
+
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
 func Test(endpoint string) bool {
@@ -82,14 +86,17 @@ func (log *Syslog) Dial() error {
 	go log.loop()
 	return nil
 }
+
 func (log *Syslog) Close() error {
 	log.stop <- struct{}{}
 	close(log.packets)
 	return nil
 }
+
 func (log *Syslog) Pools() bool {
 	return true
 }
+
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
@@ -104,7 +111,7 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"hostname\":\"" + strings.ReplaceAll(p.Hostname, "\"", "\\\"") + "\", \"tag\":\"" + strings.ReplaceAll(p.Tag, "\"", "\\\"") + "\", \"message\":\"" + strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p.Message, "\"", "\\\""), "\n", "\\n"), "\r", "\\r") + "\", \"severity\":" + strconv.Itoa(int(p.Severity)) + ", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
+			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"hostname\":\"" + cleanString(p.Hostname) + "\", \"tag\":\"" + cleanString(p.Tag) + "\", \"message\":\"" + cleanString(p.Message) + "\", \"severity\":" + strconv.Itoa(int(p.Severity)) + ", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
