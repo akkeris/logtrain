@@ -12,6 +12,7 @@ import (
 
 /*
  * Responsibilities:
+ * - Determines if the destination is misbehaving and temporarily pauses traffic to it.
  * - Pooling connections and distributing incoming messages over pools
  * - Detecting back pressure and increasing pools
  * - Decreasing pools if output disconnects or if pressure is normal

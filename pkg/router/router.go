@@ -12,7 +12,6 @@ import (
 
 /*
  * Responsibilities:
- TODO - Determining if a output/drain is misbehaving and temporarily stopping traffic to it.
  * - A single point for incoming packets from various inputs.
  * - Manages opening one drain per destination - on-demand - based on incoming traffic and routes
  * - Measuring and receiving metrics (and reporting them).
@@ -85,11 +84,12 @@ func (router *Router) Dial() error {
 				select {
 				case route := <-db.AddRoute():
 					debug.Debugf("[router] Received add %s->%s\n", route.Hostname, route.Endpoint)
-					router.addRoute(route)
+					go router.addRoute(route)
 				case route := <-db.RemoveRoute():
 					debug.Debugf("[router] Received remove %s->%s\n", route.Hostname, route.Endpoint)
-					router.removeRoute(route)
+					go router.removeRoute(route)
 				case <-router.stop:
+					debug.Debugf("[router] Data source watch loop shutting down.\n")
 					return
 				}
 			}
@@ -234,6 +234,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	} else {
 		debug.Debugf("[router] Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
+	debug.Debugf("[router] Route successfully removed %s->%s\n", r.Hostname, r.Endpoint)
 }
 
 func (router *Router) refreshRoutes() error {
@@ -289,7 +290,6 @@ func (router *Router) writeLoop() {
 				continue
 			}
 			if packet, ok := value.Interface().(syslog.Packet); ok {
-				router.mutex.Lock()
 				if drains, ok := router.drainsByHost[packet.Hostname]; ok {
 					for _, drain := range drains {
 						select {
@@ -298,6 +298,7 @@ func (router *Router) writeLoop() {
 						}
 					}
 				} else if endpoints, ok := router.endpointsByHost[packet.Hostname]; ok {
+					router.mutex.Lock()
 					debug.Debugf("[router] No drain exists for endpoint host %s, looking for endpoints...\n", packet.Hostname)
 					drains = make([]*Drain, 0)
 					for _, endpoint := range endpoints {
@@ -330,6 +331,7 @@ func (router *Router) writeLoop() {
 					if len(drains) > 0 {
 						router.drainsByHost[packet.Hostname] = drains
 					}
+					router.mutex.Unlock()
 					for _, drain := range drains {
 						select {
 						case drain.Input <- packet:
@@ -339,7 +341,6 @@ func (router *Router) writeLoop() {
 				} else {
 					router.deadPacket++
 				}
-				router.mutex.Unlock()
 			} else if chosen == 0 /* stop */ {
 				debug.Debugf("[router] writeLoop exiting.\n")
 				return
