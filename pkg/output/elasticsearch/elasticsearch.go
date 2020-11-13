@@ -19,7 +19,7 @@ type Syslog struct {
 	endpoint string
 	client   *http.Client
 	packets  chan syslog.Packet
-	errors   chan <-error
+	errors   chan<- error
 	stop     chan struct{}
 }
 
@@ -50,7 +50,7 @@ func toUrl(endpoint string) string {
 	return strings.Replace(strings.Replace(endpoint, "elasticsearch://", "https://", 1), "es://", "https://", 1)
 }
 
-func Create(endpoint string, errorsCh chan <-error) (*Syslog, error) {
+func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/trevorlinton/remote_syslog2/syslog"
 	"hash/crc32"
 	"sync"
+	"time"
 )
 
 /*
@@ -25,7 +26,7 @@ const increasePercentTrigger = 0.50 // > 50% full.
 const decreasePercentTrigger = 0.02 // 2% full.
 const decreaseTrendTrigger = 0.00   // pressure has been decreasing on average.
 const bufferSize = 1024             // amount of records to keep in memory until upstream fails.
-
+const drainErrorThreshold = 500     // the threshold for when we should pause the drain.
 type Drain struct {
 	Input          chan syslog.Packet
 	Info           chan string
@@ -243,6 +244,10 @@ func (drain *Drain) loopSticky() {
 			if err != nil {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
 			}
+			if drain.errors == drain.sent && drain.errors < drainErrorThreshold {
+				debug.Errorf("[drains] Pausing drain %s as it has incurred too many errors.\n", drain.Endpoint)
+				<-time.NewTimer(time.Minute * 5).C
+			}
 			drain.errors++
 		case <-drain.stop:
 			return
@@ -263,6 +268,10 @@ func (drain *Drain) loopTransportPools() {
 		case err := <-drain.Error:
 			if err != nil {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
+			}
+			if drain.errors == drain.sent && drain.errors < drainErrorThreshold {
+				debug.Errorf("[drains] Pausing drain %s as it has incurred too many errors.\n", drain.Endpoint)
+				<-time.NewTimer(time.Minute * 5).C
 			}
 			drain.errors++
 		case <-drain.stop:

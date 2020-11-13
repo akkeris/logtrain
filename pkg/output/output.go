@@ -30,7 +30,7 @@ func TestEndpoint(endpoint string) error {
 	return nil
 }
 
-func Create(endpoint string, errorsCh chan <-error) (Output, error) {
+func Create(endpoint string, errorsCh chan<- error) (Output, error) {
 	if elasticsearch.Test(endpoint) == true {
 		return elasticsearch.Create(endpoint, errorsCh)
 	} else if http.Test(endpoint) == true {

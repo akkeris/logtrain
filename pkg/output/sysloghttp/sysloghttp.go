@@ -14,7 +14,7 @@ type Syslog struct {
 	endpoint string
 	client   *http.Client
 	packets  chan syslog.Packet
-	errors   chan <-error
+	errors   chan<- error
 	stop     chan struct{}
 }
 
@@ -31,7 +31,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
-func Create(endpoint string, errorsCh chan <-error) (*Syslog, error) {
+func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
 	}
