@@ -21,10 +21,10 @@ import (
  * - Propogate up all errors, assume we're still good to go unless explicitly closed.
  */
 
-const increasePercentTrigger =  0.50   // > 50% full.
-const decreasePercentTrigger =  0.02   // 2% full.
-const decreaseTrendTrigger   =  0.00   // pressure has been decreasing on average.
-const bufferSize = 1024                // amount of records to keep in memory until upstream fails.
+const increasePercentTrigger = 0.50 // > 50% full.
+const decreasePercentTrigger = 0.02 // 2% full.
+const decreaseTrendTrigger = 0.00   // pressure has been decreasing on average.
+const bufferSize = 1024             // amount of records to keep in memory until upstream fails.
 
 type drainConn struct {
 	conn output.Output
@@ -167,7 +167,7 @@ func (drain *Drain) connect() error {
 	}
 
 	drain.transportPools = conn.Pools()
-	dconn := drainConn{conn:conn, stop:make(chan struct{}, 1)}
+	dconn := drainConn{conn: conn, stop: make(chan struct{}, 1)}
 	drain.connections = append(drain.connections, dconn)
 	drain.open++
 	debug.Infof("[drains] Opening new connection to %s\n", drain.Endpoint)
@@ -208,17 +208,17 @@ func (drain *Drain) disconnect(force bool) error {
 		debug.Errorf("[drains] ERROR: disconnect(true) called with no open connections available to disconnect.\n")
 		return nil
 	}
-	conn := drain.connections[len(drain.connections) - 1]
-	drain.connections = drain.connections[:len(drain.connections) - 1]
+	conn := drain.connections[len(drain.connections)-1]
+	drain.connections = drain.connections[:len(drain.connections)-1]
 	select {
 	case conn.stop <- struct{}{}:
-	default: 
+	default:
 	}
 	if err := conn.conn.Close(); err != nil {
 		debug.Errorf("[drains] Received error trying to close connection to %s during scale down period: %s\n", drain.Endpoint, err.Error())
 	}
 	drain.open--
-	debug.Infof("[drains] Decreased pool size on %s to %d because back pressure was below %f%% at %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open - 1),  decreasePercentTrigger*100, drain.pressure*100, drain.pressureTrend*100)
+	debug.Infof("[drains] Decreased pool size on %s to %d because back pressure was below %f%% at %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open - 1), decreasePercentTrigger*100, drain.pressure*100, drain.pressureTrend*100)
 	return nil
 }
 
@@ -243,7 +243,7 @@ func (drain *Drain) loopRoundRobin() {
 			if drain.scaling == false && drain.pressure > increasePercentTrigger && drain.open <= drain.maxconnections {
 				drain.scaling = true
 				go drain.connect()
-			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1  && drain.pressureTrend < decreaseTrendTrigger {
+			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1 && drain.pressureTrend < decreaseTrendTrigger {
 				drain.scaling = true
 				go drain.disconnect(false)
 			}
@@ -253,7 +253,6 @@ func (drain *Drain) loopRoundRobin() {
 		}
 	}
 }
-
 
 // Potentially look at the previous pressure see if its a downward trend.
 func (drain *Drain) loopSticky() {
@@ -270,7 +269,7 @@ func (drain *Drain) loopSticky() {
 			if drain.scaling == false && drain.pressure > increasePercentTrigger && drain.open <= drain.maxconnections {
 				drain.scaling = true
 				go drain.connect()
-			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1 &&  drain.pressureTrend < decreaseTrendTrigger {
+			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1 && drain.pressureTrend < decreaseTrendTrigger {
 				drain.scaling = true
 				go drain.disconnect(false)
 			}

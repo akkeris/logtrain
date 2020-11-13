@@ -131,6 +131,7 @@ func TestDrains(t *testing.T) {
 		So(drain.Dial(), ShouldBeNil)
 		So(drain.Dial(), ShouldNotBeNil)
 		// Use private interface to force at least four connections open
+		So(drain.disconnect(false), ShouldBeNil)
 		var connections = 5
 		drain.connect()
 		drain.connect()
@@ -176,7 +177,10 @@ func TestDrains(t *testing.T) {
 				log.Fatalf("Did not receive all of the logs, only %d out of %d (sent %d)\n", received, testAmount, sentAmount)
 			}
 		}
+		So(drain.Errors(), ShouldEqual, 0)
 		So(drain.Sent(), ShouldEqual, testAmount)
+		drain.ResetMetrics()
+		So(drain.Sent(), ShouldEqual, 0)
 		drain.Close()
 	})
 	Convey("Ensure drain with round robin setting rotates over connections", t, func() {
