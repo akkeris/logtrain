@@ -31,6 +31,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 }
 
 func TestJSONHttpOutput(t *testing.T) {
+	errorCh := make(chan error, 1)
 	testHttpServer := TestHttpServer{
 		Incoming:    make(chan string, 1),
 		ReturnError: false,
@@ -43,7 +44,7 @@ func TestJSONHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	syslog, err := Create("http://localhost:8084/tests")
+	syslog, err := Create("http://localhost:8084/tests", errorCh)
 	go s.ListenAndServe()
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
@@ -70,7 +71,7 @@ func TestJSONHttpOutput(t *testing.T) {
 			So(message, ShouldContainSubstring, "\"hostname\":\"localhost\"")
 			So(message, ShouldContainSubstring, "\"tag\":\"HttpChannelTest\"")
 			So(message, ShouldContainSubstring, "\"message\":\"Test Message\"")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 
@@ -87,7 +88,7 @@ func TestJSONHttpOutput(t *testing.T) {
 		select {
 		case <-testHttpServer.Incoming:
 			log.Fatal("No message should have been received from incoming...")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			So(error, ShouldNotBeNil)
 		}
 	})

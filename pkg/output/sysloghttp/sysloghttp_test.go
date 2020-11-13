@@ -31,6 +31,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 }
 
 func TestSyslogHttpOutput(t *testing.T) {
+	errorCh := make(chan error, 1)
 	testHttpServer := TestHttpServer{
 		Incoming:    make(chan string, 1),
 		ReturnError: false,
@@ -43,7 +44,7 @@ func TestSyslogHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	syslog, err := Create("syslog+http://localhost:8085/tests")
+	syslog, err := Create("syslog+http://localhost:8085/tests", errorCh)
 	go s.ListenAndServe()
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
@@ -69,7 +70,7 @@ func TestSyslogHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message, ShouldEqual, p.Generate(MaxLogSize)+"\n")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 
@@ -87,7 +88,7 @@ func TestSyslogHttpOutput(t *testing.T) {
 		select {
 		case <-testHttpServer.Incoming:
 			log.Fatal("No message should have been received from incoming...")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			So(error, ShouldNotBeNil)
 		}
 	})

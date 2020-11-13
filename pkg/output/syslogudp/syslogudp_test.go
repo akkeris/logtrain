@@ -25,7 +25,8 @@ func CreateUDPSyslogServer(port string) (syslogserver.LogPartsChannel, *syslogse
 }
 
 func TestSyslogUdpOutput(t *testing.T) {
-	syslog, err := Create("syslog+udp://localhost:8513/")
+	errorCh := make(chan error, 1)
+	syslog, err := Create("syslog+udp://localhost:8513/", errorCh)
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
 	})
@@ -56,7 +57,7 @@ func TestSyslogUdpOutput(t *testing.T) {
 			So(message["facility"], ShouldEqual, p.Facility)
 			So(message["hostname"], ShouldEqual, p.Hostname)
 			So(message["message"], ShouldEqual, p.Message)
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 

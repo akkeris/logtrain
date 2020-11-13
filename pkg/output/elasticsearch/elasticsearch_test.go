@@ -41,6 +41,7 @@ func (hts *TestHttpServer) ServeHTTP(res http.ResponseWriter, req *http.Request)
 }
 
 func TestElasticsearchHttpOutput(t *testing.T) {
+	errorCh := make(chan error, 1)
 	testHttpServer := TestHttpServer{
 		Incoming:    make(chan TestHttpMessage, 1),
 		ReturnError: false,
@@ -53,7 +54,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests")
+	syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests", errorCh)
 	go s.ListenAndServe()
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
@@ -80,7 +81,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
 			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\"" + p.Hostname + "\", \"tag\":\"" + p.Tag + "\", \"message\":\""+p.Generate(MaxLogSize)+"\" }")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 
@@ -98,7 +99,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case <-testHttpServer.Incoming:
 			log.Fatal("No message should have been received from incoming...")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			So(error, ShouldNotBeNil)
 		}
 	})
@@ -107,7 +108,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 	})
 	Convey("Test ApiKey Auth", t, func() {
 		testHttpServer.ReturnError = false
-		syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests?auth=apikey")
+		syslog, err := Create("elasticsearch+http://user:pass@localhost:8083/tests?auth=apikey", errorCh)
 		So(err, ShouldBeNil)
 		So(syslog.Dial(), ShouldBeNil)
 		now := time.Now()
@@ -124,14 +125,14 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
 			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\"" + p.Hostname + "\", \"tag\":\"" + p.Tag + "\", \"message\":\""+strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"")+"\" }\n")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 		So(syslog.Close(), ShouldBeNil)
 	})
 	Convey("Test Bearer Auth", t, func() {
 		testHttpServer.ReturnError = false
-		syslog, err := Create("elasticsearch+http://:pass@localhost:8083/tests?auth=bearer")
+		syslog, err := Create("elasticsearch+http://:pass@localhost:8083/tests?auth=bearer", errorCh)
 		So(err, ShouldBeNil)
 		So(syslog.Dial(), ShouldBeNil)
 		now := time.Now()
@@ -148,7 +149,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
 			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\"" + p.Hostname + "\", \"tag\":\"" + p.Tag + "\", \"message\":\""+p.Generate(MaxLogSize)+"\" }\n")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 		So(syslog.Close(), ShouldBeNil)

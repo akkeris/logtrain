@@ -14,7 +14,6 @@ import (
 type Output interface {
 	Close() error
 	Dial() error
-	Errors() chan error
 	Packets() chan syslog.Packet
 	Pools() bool /* Whether the transport layer automatically pools or not. */
 }
@@ -31,19 +30,19 @@ func TestEndpoint(endpoint string) error {
 	return nil
 }
 
-func Create(endpoint string) (Output, error) {
+func Create(endpoint string, errorsCh chan <-error) (Output, error) {
 	if elasticsearch.Test(endpoint) == true {
-		return elasticsearch.Create(endpoint)
+		return elasticsearch.Create(endpoint, errorsCh)
 	} else if http.Test(endpoint) == true {
-		return http.Create(endpoint)
+		return http.Create(endpoint, errorsCh)
 	} else if sysloghttp.Test(endpoint) == true {
-		return sysloghttp.Create(endpoint)
+		return sysloghttp.Create(endpoint, errorsCh)
 	} else if syslogtcp.Test(endpoint) == true {
-		return syslogtcp.Create(endpoint)
+		return syslogtcp.Create(endpoint, errorsCh)
 	} else if syslogtls.Test(endpoint) == true {
-		return syslogtls.Create(endpoint)
+		return syslogtls.Create(endpoint, errorsCh)
 	} else if syslogudp.Test(endpoint) == true {
-		return syslogudp.Create(endpoint)
+		return syslogudp.Create(endpoint, errorsCh)
 	}
 	return nil, errors.New("Unrecognized endpoint " + endpoint)
 }

@@ -143,8 +143,9 @@ func CreateTlsSudoSyslogServer(port string) (chan string, chan struct{}, net.Lis
 }
 
 func TestSyslogTlsOutput(t *testing.T) {
+	errorCh := make(chan error, 1)
 	channel, stop, server, cert := CreateTlsSudoSyslogServer("8514")
-	syslog, err := Create("syslog+tls://localhost:8514/?ca=" + base64.StdEncoding.EncodeToString(cert))
+	syslog, err := Create("syslog+tls://localhost:8514/?ca=" + base64.StdEncoding.EncodeToString(cert), errorCh)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -171,7 +172,7 @@ func TestSyslogTlsOutput(t *testing.T) {
 		select {
 		case message := <-channel:
 			So(message, ShouldEqual, p.Generate(MaxLogSize)+"\n")
-		case error := <-syslog.Errors():
+		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
 	})
@@ -182,9 +183,9 @@ func TestSyslogTlsOutput(t *testing.T) {
 		So(syslog.Close(), ShouldBeNil)
 	})
 	Convey("Ensure nonsensical base64 cas wont work", t, func() {
-		_, err := Create("syslog+tls://localhost:8514/?ca=blah")
+		_, err := Create("syslog+tls://localhost:8514/?ca=blah", errorCh)
 		So(err, ShouldNotBeNil)
-		_, err = Create("syslog+tls://localhost:8514/?ca=" + base64.StdEncoding.EncodeToString([]byte("this is not a valid pem file.")))
+		_, err = Create("syslog+tls://localhost:8514/?ca=" + base64.StdEncoding.EncodeToString([]byte("this is not a valid pem file.")), errorCh)
 		So(err, ShouldNotBeNil)
 	})
 }

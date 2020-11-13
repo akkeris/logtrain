@@ -12,6 +12,7 @@ type Syslog struct {
 	url      url.URL
 	endpoint string
 	logger   *syslog.Logger
+	errors   chan <-error
 }
 
 var syslogSchemas = []string{"syslog+tcp://"}
@@ -28,7 +29,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
-func Create(endpoint string) (*Syslog, error) {
+func Create(endpoint string, errorsCh chan <-error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
 	}
@@ -39,6 +40,7 @@ func Create(endpoint string) (*Syslog, error) {
 	return &Syslog{
 		endpoint: endpoint,
 		url:      *u,
+		errors:   errorsCh,
 	}, nil
 }
 
@@ -58,7 +60,4 @@ func (log *Syslog) Pools() bool {
 }
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.logger.Packets
-}
-func (log *Syslog) Errors() chan error {
-	return log.logger.Errors
 }

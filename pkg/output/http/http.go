@@ -15,7 +15,7 @@ type Syslog struct {
 	endpoint string
 	client   *http.Client
 	packets  chan syslog.Packet
-	errors   chan error
+	errors   chan <-error
 	stop     chan struct{}
 	closed   bool
 }
@@ -33,7 +33,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
-func Create(endpoint string) (*Syslog, error) {
+func Create(endpoint string, errorsCh chan <-error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
 	}
@@ -46,7 +46,7 @@ func Create(endpoint string) (*Syslog, error) {
 		url:      *u,
 		client:   &http.Client{},
 		packets:  make(chan syslog.Packet, 10),
-		errors:   make(chan error, 1),
+		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),
 		closed:   false,
 	}, nil
@@ -60,7 +60,6 @@ func (log *Syslog) Close() error {
 	log.closed = true
 	log.stop <- struct{}{}
 	close(log.packets)
-	close(log.errors)
 	return nil
 }
 func (log *Syslog) Pools() bool {
@@ -68,9 +67,6 @@ func (log *Syslog) Pools() bool {
 }
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
-}
-func (log *Syslog) Errors() chan error {
-	return log.errors
 }
 func (log *Syslog) loop() {
 	for {
