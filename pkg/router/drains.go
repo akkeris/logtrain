@@ -14,7 +14,6 @@ import (
  * - Pooling connections and distributing incoming messages over pools
  * - Detecting back pressure and increasing pools
  * - Decreasing pools if output disconnects or if pressure is normal
- * - Keeping buffer of information coming off of input
  * - Reporting information (metrics) or errors to upstream
  *
  * Principals:
@@ -22,9 +21,15 @@ import (
  * - Propogate up all errors, assume we're still good to go unless explicitly closed.
  */
 
-const increasePercentTrigger = 0.5  // > 50% full.
-const decreasePercentTrigger = 0.02 // 2% full.
-const bufferSize = 512              // amount of records to keep in memory until upstream fails.
+const increasePercentTrigger =  0.50   // > 50% full.
+const decreasePercentTrigger =  0.02   // 2% full.
+const decreaseTrendTrigger   =  0.00   // pressure has been decreasing on average.
+const bufferSize = 1024                // amount of records to keep in memory until upstream fails.
+
+type drainConn struct {
+	conn output.Output
+	stop chan struct{}
+}
 
 type Drain struct {
 	Input          chan syslog.Packet
@@ -33,7 +38,7 @@ type Drain struct {
 	Endpoint       string
 	maxconnections uint32
 	errors         uint32
-	connections    []output.Output
+	connections    []drainConn
 	mutex          *sync.Mutex
 	sent           uint32
 	stop           chan struct{}
@@ -41,6 +46,8 @@ type Drain struct {
 	open           uint32
 	sticky         bool
 	transportPools bool
+	pressureTrend  float64
+	scaling        bool
 }
 
 func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error) {
@@ -62,9 +69,11 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 		Input:          make(chan syslog.Packet, bufferSize),
 		Info:           make(chan string, 1),
 		Error:          make(chan error, 1),
-		connections:    make([]output.Output, 0),
+		connections:    make([]drainConn, 0),
 		mutex:          &sync.Mutex{},
 		stop:           make(chan struct{}, 1),
+		pressureTrend:  0,
+		scaling:        false,
 	}
 
 	if err := output.TestEndpoint(endpoint); err != nil {
@@ -99,7 +108,7 @@ func (drain *Drain) ResetMetrics() {
 }
 
 func (drain *Drain) Dial() error {
-	debug.Debugf("[drains] Dailing drain %s...\n", drain.Endpoint)
+	debug.Infof("[drains] Dailing drain %s...\n", drain.Endpoint)
 	if drain.open != 0 {
 		return errors.New("Dial should not be called twice.")
 	}
@@ -119,26 +128,34 @@ func (drain *Drain) Dial() error {
 }
 
 func (drain *Drain) Close() error {
-	debug.Debugf("[drains] Closing drain to %s\n", drain.Endpoint)
+	debug.Infof("[drains] Closing all connections in drain to %s\n", drain.Endpoint)
 	drain.stop <- struct{}{}
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
 	var err error = nil
 	for _, conn := range drain.connections {
 		debug.Debugf("[drains] Closing connection to %s\n", drain.Endpoint)
-		if err = conn.Close(); err != nil {
+		select {
+		case conn.stop <- struct{}{}:
+		default:
+		}
+		if err = conn.conn.Close(); err != nil {
 			debug.Debugf("[drains] Received error trying to close connection to %s: %s\n", drain.Endpoint, err.Error())
 		}
 		drain.open--
 	}
-	drain.connections = make([]output.Output, 0)
+	drain.connections = make([]drainConn, 0)
 	return err
 }
 
 func (drain *Drain) connect() error {
-	debug.Debugf("[drains] Drain %s connecting...\n", drain.Endpoint)
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
+	defer func() { drain.scaling = false }()
+	if drain.open >= drain.maxconnections {
+		return nil
+	}
+	debug.Debugf("[drains] Drain %s connecting...\n", drain.Endpoint)
 	conn, err := output.Create(drain.Endpoint)
 	if err != nil {
 		debug.Errorf("[drains] Received an error attempting to create endpoint %s: %s\n", drain.Endpoint, err.Error())
@@ -150,27 +167,58 @@ func (drain *Drain) connect() error {
 	}
 
 	drain.transportPools = conn.Pools()
-	drain.connections = append(drain.connections, conn)
+	dconn := drainConn{conn:conn, stop:make(chan struct{}, 1)}
+	drain.connections = append(drain.connections, dconn)
 	drain.open++
-	debug.Debugf("[drains] Opening new connection to %s\n", drain.Endpoint)
+	debug.Infof("[drains] Opening new connection to %s\n", drain.Endpoint)
 
 	go func() {
 		for {
 			select {
 			case err := <-conn.Errors():
-				if err != nil {
-					debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
-					drain.errors++
-				} else {
-					debug.Debugf("[drains] Received a nil on error channel (assuming it closed...). %s\n", drain.Endpoint)
-					return
+				if err == nil {
+					debug.Errorf("[drains] Received an error from a connection that was nil! %s\n", drain.Endpoint)
+					continue
 				}
+				debug.Errorf("[drains] Received an error from output on %s: %s\n", drain.Endpoint, err.Error())
+				drain.errors++
+			case <-dconn.stop:
+				debug.Debugf("[drains] Received stop message for connection to %s\n", drain.Endpoint)
+				return
 			case <-drain.stop:
 				debug.Debugf("[drains] Received stop message for drain %s\n", drain.Endpoint)
 				return
 			}
 		}
 	}()
+	debug.Infof("[drains] Increasing pool size on %s to %d because back pressure was %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open + 1), drain.pressure*100, drain.pressureTrend*100)
+	return nil
+}
+
+func (drain *Drain) disconnect(force bool) error {
+	drain.mutex.Lock()
+	defer drain.mutex.Unlock()
+	defer func() { drain.scaling = false }()
+	if drain.open < 2 && force == false {
+		// disconnects are fired as go routines by the loop writer, depending on how
+		// quickly the loop writer executes and when the next mutex lock releases we
+		// may have been called but shouldn't actually execute. Unless were forced.
+		return nil
+	} else if drain.open == 0 {
+		debug.Errorf("[drains] ERROR: disconnect(true) called with no open connections available to disconnect.\n")
+		return nil
+	}
+	conn := drain.connections[len(drain.connections) - 1]
+	drain.connections = drain.connections[:len(drain.connections) - 1]
+	select {
+	case conn.stop <- struct{}{}:
+	default: 
+	}
+	if err := conn.conn.Close(); err != nil {
+		debug.Errorf("[drains] Received error trying to close connection to %s during scale down period: %s\n", drain.Endpoint, err.Error())
+	}
+	drain.open--
+	debug.Infof("[drains] Decreased pool size on %s to %d because back pressure was below %f%% at %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open - 1),  decreasePercentTrigger*100, drain.pressure*100, drain.pressureTrend*100)
 	return nil
 }
 
@@ -188,11 +236,16 @@ func (drain *Drain) loopRoundRobin() {
 		case packet := <-drain.Input:
 			drain.mutex.Lock()
 			drain.sent++
-			drain.connections[drain.sent%drain.open].Packets() <- packet
-			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
-			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				debug.Debugf("[drains] Increasing pool size %s to %d because back pressure was %f%%\n", drain.Endpoint, drain.open, drain.pressure*100)
+			drain.connections[drain.sent%drain.open].conn.Packets() <- packet
+			newPressure := (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
+			drain.pressureTrend = ((newPressure - drain.pressure) + drain.pressureTrend) / float64(2)
+			drain.pressure = newPressure
+			if drain.scaling == false && drain.pressure > increasePercentTrigger && drain.open <= drain.maxconnections {
+				drain.scaling = true
 				go drain.connect()
+			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1  && drain.pressureTrend < decreaseTrendTrigger {
+				drain.scaling = true
+				go drain.disconnect(false)
 			}
 			drain.mutex.Unlock()
 		case <-drain.stop:
@@ -201,6 +254,8 @@ func (drain *Drain) loopRoundRobin() {
 	}
 }
 
+
+// Potentially look at the previous pressure see if its a downward trend.
 func (drain *Drain) loopSticky() {
 	var maxPackets = cap(drain.Input)
 	for {
@@ -208,11 +263,16 @@ func (drain *Drain) loopSticky() {
 		case packet := <-drain.Input:
 			drain.mutex.Lock()
 			drain.sent++
-			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].Packets() <- packet
-			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
-			if drain.pressure > increasePercentTrigger && drain.open < drain.maxconnections {
-				debug.Debugf("[drains] Increasing pool size %s to %d because back pressure was %f%%\n", drain.Endpoint, drain.open, drain.pressure*100)
+			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].conn.Packets() <- packet
+			newPressure := (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
+			drain.pressureTrend = ((newPressure - drain.pressure) + drain.pressureTrend) / float64(2)
+			drain.pressure = newPressure
+			if drain.scaling == false && drain.pressure > increasePercentTrigger && drain.open <= drain.maxconnections {
+				drain.scaling = true
 				go drain.connect()
+			} else if drain.scaling == false && drain.pressure < decreasePercentTrigger && drain.open > 1 &&  drain.pressureTrend < decreaseTrendTrigger {
+				drain.scaling = true
+				go drain.disconnect(false)
 			}
 			drain.mutex.Unlock()
 		case <-drain.stop:
@@ -228,7 +288,7 @@ func (drain *Drain) loopTransportPools() {
 		case packet := <-drain.Input:
 			drain.mutex.Lock()
 			drain.sent++
-			drain.connections[0].Packets() <- packet
+			drain.connections[0].conn.Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			drain.mutex.Unlock()
 		case <-drain.stop:

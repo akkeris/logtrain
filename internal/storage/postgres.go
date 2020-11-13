@@ -105,6 +105,10 @@ func (pds *PostgresDataSource) listenForChanges() {
 	}
 }
 
+// TODO: Support regex in the hostname.
+// TODO: Add datasource that's a configmap.
+// TODO: Add a command line data source 
+
 func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*PostgresDataSource, error) {
 	pds := PostgresDataSource{
 		listener: listener,

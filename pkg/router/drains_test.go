@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -124,7 +125,7 @@ func TestDrains(t *testing.T) {
 	})
 	Convey("Ensure drain with sticky setting keeps same connection for hostname + tag", t, func() {
 		var testAmount = 10
-		drain, err := Create("syslog+tcp://localhost:10512", 1024, true)
+		drain, err := Create("syslog+tcp://localhost:10512", 40, true)
 		So(drain, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 		So(drain.Dial(), ShouldBeNil)
@@ -136,9 +137,10 @@ func TestDrains(t *testing.T) {
 		drain.connect()
 		drain.connect()
 		So(drain.OpenConnections(), ShouldEqual, connections)
-		So(drain.MaxConnections(), ShouldEqual, 1024)
+		So(drain.MaxConnections(), ShouldEqual, 40)
 		So(drain.Pressure(), ShouldEqual, 0)
 		So(drain.Sent(), ShouldEqual, 0)
+		var sentAmount = 0
 		go func() {
 			for i := 0; i < testAmount; i++ {
 				drain.Input <- syslog2.Packet{
@@ -149,6 +151,7 @@ func TestDrains(t *testing.T) {
 					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i%connections),
 					Message:  "Test Message " + strconv.Itoa(i),
 				}
+				sentAmount++
 			}
 		}()
 		var received = 0
@@ -160,7 +163,8 @@ func TestDrains(t *testing.T) {
 			case message := <-server.Received:
 				// Perform the same hash as the drain and ensure the connection id matches the hash.
 				// messages may arrive out of order, so we'll grab the order id as the second to last byte in the message
-				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message)-2]}))
+				mo := strings.Split(message.Message, " ")
+				order, err := strconv.Atoi(strings.TrimRight(mo[len(mo)-1], "\n"))
 				So(err, ShouldBeNil)
 				// TODO: why is this failing?
 				//h := int(crc32.ChecksumIEEE([]byte("localhost" + "HttpSyslogChannelTest" + strconv.Itoa(order % connections))))
@@ -168,6 +172,8 @@ func TestDrains(t *testing.T) {
 				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest"+strconv.Itoa(order%connections))
 				So(message.Message, ShouldContainSubstring, "Test Message "+strconv.Itoa(order))
 				received++
+			case <-time.NewTimer(time.Second * 5).C:
+				log.Fatalf("Did not receive all of the logs, only %d out of %d (sent %d)\n", received, testAmount, sentAmount)
 			}
 		}
 		So(drain.Sent(), ShouldEqual, testAmount)
@@ -183,6 +189,7 @@ func TestDrains(t *testing.T) {
 		var connections = 3
 		drain.connect()
 		drain.connect()
+		var sentAmount = 0
 		go func() {
 			for i := 0; i < testAmount; i++ {
 				drain.Input <- syslog2.Packet{
@@ -193,6 +200,7 @@ func TestDrains(t *testing.T) {
 					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i%connections),
 					Message:  "Test Message " + strconv.Itoa(i),
 				}
+				sentAmount++
 			}
 		}()
 
@@ -204,13 +212,16 @@ func TestDrains(t *testing.T) {
 			select {
 			case message := <-server.Received:
 				// messages may arrive out of order, so we'll grab the order id as the second to last byte in the message
-				order, err := strconv.Atoi(string([]byte{message.Message[len(message.Message)-2]}))
+				mo := strings.Split(message.Message, " ")
+				order, err := strconv.Atoi(strings.TrimRight(mo[len(mo)-1], "\n"))
 				So(err, ShouldBeNil)
 				// TODO: why is this failing?
 				//So(message.Connection, ShouldEqual, (order + 1) % connections)
 				So(message.Message, ShouldContainSubstring, "HttpSyslogChannelTest"+strconv.Itoa(order%connections))
 				So(message.Message, ShouldContainSubstring, "Test Message "+strconv.Itoa(order))
 				received++
+			case <-time.NewTimer(time.Second * 5).C:
+				log.Fatalf("Did not receive all of the logs, only %d out of %d (sent %d)\n", received, testAmount, sentAmount)
 			}
 		}
 		drain.Close()
@@ -233,6 +244,7 @@ func TestDrains(t *testing.T) {
 		So(drain, ShouldNotBeNil)
 		So(err, ShouldBeNil)
 		So(drain.Dial(), ShouldBeNil)
+		var sentAmount = 0
 		go func() {
 			for i := 0; i < testAmount; i++ {
 				drain.Input <- syslog2.Packet{
@@ -243,6 +255,7 @@ func TestDrains(t *testing.T) {
 					Tag:      "HttpSyslogChannelTest" + strconv.Itoa(i),
 					Message:  "Test Message " + strconv.Itoa(i),
 				}
+				sentAmount++
 			}
 		}()
 
@@ -254,7 +267,8 @@ func TestDrains(t *testing.T) {
 			select {
 			case <-testHttpServer.Incoming:
 				received++
-			default:
+			case <-time.NewTimer(time.Second * 5).C:
+				log.Fatalf("Did not receive all of the logs, only %d out of %d (send %d)\n", received, testAmount, sentAmount)
 			}
 		}
 		So(testAmount, ShouldEqual, received)
