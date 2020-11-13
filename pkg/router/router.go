@@ -200,6 +200,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	} else {
 		debug.Debugf("[router] Remove route was called but route didn't exist in endpointsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
+
 	if drains, ok := router.drainsByHost[r.Hostname]; ok {
 		drs := make([]*Drain, 0)
 		for _, d := range drains {
@@ -226,6 +227,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	}
 	if foundUsedEndpoint == false {
 		if drain, ok := router.drainByEndpoint[r.Endpoint]; ok {
+			debug.Debugf("[router] While removing route, discovered drain with no endpoints using it, so we'll close the drain. %s->%s\n", r.Hostname, r.Endpoint)
 			drain.Close()
 			delete(router.drainByEndpoint, r.Endpoint)
 		} else {

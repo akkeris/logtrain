@@ -165,7 +165,7 @@ func (drain *Drain) connect() error {
 	drain.transportPools = conn.Pools()
 	drain.connections = append(drain.connections, conn)
 	drain.open++
-	debug.Infof("[drains] Increasing pool size on %s to %d because back pressure was %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open + 1), drain.pressure*100, drain.pressureTrend*100)
+	debug.Infof("[drains] Increasing pool size on %s to %d because back pressure was %f%% (trending by %f%%)\n", drain.Endpoint, drain.open, drain.pressure*100, drain.pressureTrend*100)
 	return nil
 }
 
@@ -188,7 +188,7 @@ func (drain *Drain) disconnect(force bool) error {
 		debug.Errorf("[drains] Received error trying to close connection to %s during scale down period: %s\n", drain.Endpoint, err.Error())
 	}
 	drain.open--
-	debug.Infof("[drains] Decreased pool size on %s to %d because back pressure was below %f%% at %f%% (trending by %f%%)\n", drain.Endpoint, (drain.open - 1), decreasePercentTrigger*100, drain.pressure*100, drain.pressureTrend*100)
+	debug.Infof("[drains] Decreased pool size on %s to %d because back pressure was below %f%% at %f%% (trending by %f%%)\n", drain.Endpoint, drain.open, decreasePercentTrigger*100, drain.pressure*100, drain.pressureTrend*100)
 	return nil
 }
 
