@@ -103,7 +103,7 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"hostname\":\"" + strings.ReplaceAll(p.Hostname, "\"", "\\\"") + "\", \"tag\":\"" + strings.ReplaceAll(p.Tag, "\"", "\\\"") + "\", \"message\":\"" + strings.ReplaceAll(p.Generate(MaxLogSize), "\"", "\\\"") + "\" }\n"
+			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + strings.ReplaceAll(index, "\"", "\\\"") + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"hostname\":\"" + strings.ReplaceAll(p.Hostname, "\"", "\\\"") + "\", \"tag\":\"" + strings.ReplaceAll(p.Tag, "\"", "\\\"") + "\", \"message\":\"" + strings.ReplaceAll(p.Message, "\"", "\\\"") + "\", \"severity\":" + strconv.Itoa(int(p.Severity)) + ", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
