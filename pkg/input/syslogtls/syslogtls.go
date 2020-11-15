@@ -49,6 +49,7 @@ func (handler *HandlerSyslogTLS) getServerConfig() (*tls.Config, error) {
 	return &config, nil
 }
 
+// Close input handler.
 func (handler *HandlerSyslogTLS) Close() error {
 	handler.stop <- struct{}{}
 	handler.server.Kill()
@@ -68,9 +69,10 @@ func defaultTlsPeerName(tlsConn *tls.Conn) (tlsPeer string, ok bool) {
 	return cn, true
 }
 
+// Dial input handler.
 func (handler *HandlerSyslogTLS) Dial() error {
 	if handler.server != nil {
-		return errors.New("Dial may only be called once.")
+		return errors.New("dial may only be called once")
 	}
 	config, err := handler.getServerConfig()
 	if err != nil {
@@ -90,12 +92,12 @@ func (handler *HandlerSyslogTLS) Dial() error {
 		for {
 			select {
 			case message := <-handler.channel:
-				var severity int = 0
-				var facility int = 0
-				var hostname string = ""
-				var tag string = ""
+				var severity int
+				var facility int
+				var hostname string
+				var tag string
 				var timestamp time.Time = time.Now()
-				var msg string = ""
+				var msg string
 				if s, ok := message["severity"].(int); ok {
 					severity = s
 				}
@@ -130,18 +132,22 @@ func (handler *HandlerSyslogTLS) Dial() error {
 	return nil
 }
 
+// Error channel that sends errors occuring from input
 func (handler *HandlerSyslogTLS) Errors() chan error {
 	return handler.errors
 }
 
+// Packets channel that sends incoming packets from input
 func (handler *HandlerSyslogTLS) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
+// Whether this input pools or not.
 func (handler *HandlerSyslogTLS) Pools() bool {
 	return true
 }
 
+// Create a new syslog tls input
 func Create(serverName string, keyPem string, certPem string, caPem string, address string) (*HandlerSyslogTLS, error) {
 	return &HandlerSyslogTLS{
 		errors:      make(chan error, 1),
