@@ -476,6 +476,10 @@ github.com/trevorlinton/remote_syslog2 v0.19.10 h1:XYO+cQeqyCWxJdwTYpBkngV3GT3P0
 github.com/trevorlinton/remote_syslog2 v0.19.10/go.mod h1:YlMwP7RYXkq5oT4uwzM9+MsNa6hNtRrjXze/GU/4zmw=
 github.com/trevorlinton/remote_syslog2 v0.19.11 h1:4W5zL12hPJgT7gEtRYIJSlP0VKX15BfMKcI3Mmv/Qnw=
 github.com/trevorlinton/remote_syslog2 v0.19.11/go.mod h1:YlMwP7RYXkq5oT4uwzM9+MsNa6hNtRrjXze/GU/4zmw=
+github.com/trevorlinton/remote_syslog2 v0.19.12 h1:BMOtvteUfpa32zXxEF8P2mQHgl/Iq/V1kGmjDky4V20=
+github.com/trevorlinton/remote_syslog2 v0.19.12/go.mod h1:YlMwP7RYXkq5oT4uwzM9+MsNa6hNtRrjXze/GU/4zmw=
+github.com/trevorlinton/remote_syslog2 v0.19.13 h1:j69/mFzAr7KD5bQ2F5KcZm+mb6N6lQLvOyDsIuoZ+Jo=
+github.com/trevorlinton/remote_syslog2 v0.19.13/go.mod h1:YlMwP7RYXkq5oT4uwzM9+MsNa6hNtRrjXze/GU/4zmw=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=

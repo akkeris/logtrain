@@ -2,7 +2,6 @@ package http
 
 import (
 	"encoding/json"
-	packet "github.com/akkeris/logtrain/pkg/output/packet"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"io/ioutil"
 	"net/http"
@@ -29,24 +28,15 @@ func (handler *HandlerHttpJson) HandlerFunc(response http.ResponseWriter, req *h
 		return
 	}
 	defer req.Body.Close()
-	var p packet.Packet
+	var p syslog.Packet
 	if err := json.Unmarshal(data, &p); err != nil {
 		handler.httpError(response, http.StatusBadRequest, err)
 		return
 	}
-	// if only golang allowed down casting, alas.
-	sp := syslog.Packet{
-		Severity: p.Severity,
-		Facility: p.Facility,
-		Message:  p.Message,
-		Tag:      p.Tag,
-		Hostname: p.Hostname,
-		Time:     p.Time,
-	}
 	// do not block, if we cannot send to the packets channel
 	// assume its closed or full and the message is lost.
 	select {
-	case handler.packets <- sp:
+	case handler.packets <- p:
 	default:
 	}
 	response.WriteHeader(http.StatusOK)

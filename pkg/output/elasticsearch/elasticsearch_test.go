@@ -2,7 +2,6 @@ package elasticsearch
 
 import (
 	"encoding/base64"
-	"github.com/akkeris/logtrain/pkg/output/packet"
 	. "github.com/smartystreets/goconvey/convey"
 	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	"io/ioutil"
@@ -67,11 +66,10 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		So(syslog.Pools(), ShouldEqual, true)
 	})
 	Convey("Ensure we can send syslog packets", t, func() {
-		now := time.Now()
 		p := syslog2.Packet{
 			Severity: 0,
 			Facility: 0,
-			Time:     now,
+			Time:     time.Now(),
 			Hostname: "localhost",
 			Tag:      "HttpSyslogChannelTest",
 			Message:  "Test Message",
@@ -80,7 +78,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Basic "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(syslog2.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
@@ -124,7 +122,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "ApiKey "+base64.StdEncoding.EncodeToString([]byte("user:pass")))
-			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+strings.ReplaceAll(p.Message, "\"", "\\\"")+"\", \"severity\":0, \"facility\":0 }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(syslog2.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+strings.ReplaceAll(p.Message, "\"", "\\\"")+"\", \"severity\":0, \"facility\":0 }\n")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
@@ -148,7 +146,7 @@ func TestElasticsearchHttpOutput(t *testing.T) {
 		select {
 		case message := <-testHttpServer.Incoming:
 			So(message.Request.Header.Get("authorization"), ShouldEqual, "Bearer pass")
-			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(packet.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }\n")
+			So(message.Body, ShouldContainSubstring, "{ \"@timestamp\":\""+p.Time.Format(syslog2.Rfc5424time)+"\", \"hostname\":\""+p.Hostname+"\", \"tag\":\""+p.Tag+"\", \"message\":\""+p.Message+"\", \"severity\":0, \"facility\":0 }\n")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}

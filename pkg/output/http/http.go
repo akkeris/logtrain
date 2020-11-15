@@ -3,7 +3,6 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"github.com/akkeris/logtrain/pkg/output/packet"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"net/http"
 	"net/url"
@@ -72,7 +71,7 @@ func (log *Syslog) loop() {
 	for {
 		select {
 		case p := <-log.packets:
-			payload, err := json.Marshal(packet.Packet{p})
+			payload, err := json.Marshal(p)
 			if err == nil {
 				resp, err := log.client.Post(log.url.String(), "application/json", strings.NewReader(string(payload)))
 				if log.closed == true {

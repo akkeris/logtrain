@@ -2,7 +2,6 @@ package http
 
 import (
 	"encoding/json"
-	"github.com/akkeris/logtrain/pkg/output/packet"
 	. "github.com/smartystreets/goconvey/convey"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
@@ -43,7 +42,7 @@ func TestJsonHttpOutput(t *testing.T) {
 			Hostname: "name-namespace",
 			Time:     time.Now(),
 		}
-		data, err := json.Marshal(packet.Packet{p})
+		data, err := json.Marshal(p)
 		So(err, ShouldBeNil)
 		resp, err := http.Post("http://localhost:8089/stream-test", "application/json", strings.NewReader(string(data)))
 		So(err, ShouldBeNil)
@@ -62,17 +61,8 @@ func TestJsonHttpOutput(t *testing.T) {
 	})
 
 	Convey("Test sending a malformed request", t, func() {
-		p := syslog.Packet{
-			Severity: 0,
-			Facility: 0,
-			Message:  "Oh hello",
-			Tag:      "web",
-			Hostname: "name-namespace",
-			Time:     time.Now(),
-		}
-		data, err := json.Marshal(p) // syslog.Packet (p) is not serializable, therefore it'll generate a bad payload below.
 		So(err, ShouldBeNil)
-		resp, err := http.Post("http://localhost:8089/stream-test", "application/json", strings.NewReader(string(data)))
+		resp, err := http.Post("http://localhost:8089/stream-test", "application/json", strings.NewReader("foobar"))
 		So(err, ShouldBeNil)
 		So(resp.StatusCode, ShouldEqual, http.StatusBadRequest)
 		resp.Body.Close()

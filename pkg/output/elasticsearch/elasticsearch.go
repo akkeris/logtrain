@@ -24,11 +24,8 @@ type Syslog struct {
 	stop     chan struct{}
 }
 
-const rfc5424time = "2006-01-02T15:04:05.999999Z07:00"
 
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
-
-const MaxLogSize int = 99990
 
 func cleanString(str string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(str, "\"", "\\\""), "\n", "\\n"), "\r", "\\r"), "\x00", "")
@@ -111,7 +108,13 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload = payload + "{\"create\":{ \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n{ \"@timestamp\":\"" + p.Time.Format(rfc5424time) + "\", \"hostname\":\"" + cleanString(p.Hostname) + "\", \"tag\":\"" + cleanString(p.Tag) + "\", \"message\":\"" + cleanString(p.Message) + "\", \"severity\":" + strconv.Itoa(int(p.Severity)) + ", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
+			payload += "{\"create\":{ \"_source\": \"logtrain\" \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" + 
+				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) + 
+				"\", \"hostname\":\"" + cleanString(p.Hostname) + 
+				"\", \"tag\":\"" + cleanString(p.Tag) + 
+				"\", \"message\":\"" + cleanString(p.Message) + 
+				"\", \"severity\":" + strconv.Itoa(int(p.Severity)) + 
+				", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
