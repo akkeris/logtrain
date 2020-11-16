@@ -87,7 +87,7 @@ func (handler *HandlerSyslogUDP) Dial() error {
 	return nil
 }
 
-// Error channel that sends errors occuring from input
+// Errors returns a channel to receive errors occuring from input
 func (handler *HandlerSyslogUDP) Errors() chan error {
 	return handler.errors
 }
