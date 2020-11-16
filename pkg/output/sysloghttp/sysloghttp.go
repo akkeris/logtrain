@@ -52,7 +52,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
-// Connect to the syslog output
+// Dial connects to the syslog output
 func (log *Syslog) Dial() error {
 	go log.loop()
 	return nil
@@ -65,12 +65,12 @@ func (log *Syslog) Close() error {
 	return nil
 }
 
-// See if the syslog output pools
+// Pools checks to see if the output pools
 func (log *Syslog) Pools() bool {
 	return true
 }
 
-// Send packets to the syslog endpoint
+// Packets returns a channel to send syslog packets to the endpoint
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
