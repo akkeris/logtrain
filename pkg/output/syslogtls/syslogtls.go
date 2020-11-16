@@ -66,7 +66,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
-// Connect to the syslog output
+// Dial connects to the syslog output
 func (log *Syslog) Dial() error {
 	debug.Debugf("[syslog+tls/output]: Dial called for %s\n", log.endpoint)
 	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, log.roots, time.Second*4, time.Second*4, maxLogSize)

@@ -47,7 +47,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
-// Connect to the syslog output
+// Dial connects to the syslog output
 func (log *Syslog) Dial() error {
 	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, nil, time.Second*4, time.Second*4, maxLogSize)
 	if err != nil {
