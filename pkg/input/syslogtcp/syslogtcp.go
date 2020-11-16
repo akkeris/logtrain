@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-/* Handles Syslog TCP inputs */
-type HandlerSyslogTcp struct {
+/* HandlerSyslogTCP handles Syslog TCP inputs */
+type HandlerSyslogTCP struct {
 	errors  chan error
 	packets chan syslog.Packet
 	stop    chan struct{}
@@ -18,7 +18,7 @@ type HandlerSyslogTcp struct {
 }
 
 // Close input handler.
-func (handler *HandlerSyslogTcp) Close() error {
+func (handler *HandlerSyslogTCP) Close() error {
 	handler.stop <- struct{}{}
 	handler.server.Kill()
 	close(handler.packets)
@@ -29,7 +29,7 @@ func (handler *HandlerSyslogTcp) Close() error {
 }
 
 // Dial input handler.
-func (handler *HandlerSyslogTcp) Dial() error {
+func (handler *HandlerSyslogTCP) Dial() error {
 	if handler.server != nil {
 		return errors.New("dial may only be called once")
 	}
@@ -88,23 +88,23 @@ func (handler *HandlerSyslogTcp) Dial() error {
 }
 
 // Errors returns a channel that sends errors occuring from input
-func (handler *HandlerSyslogTcp) Errors() chan error {
+func (handler *HandlerSyslogTCP) Errors() chan error {
 	return handler.errors
 }
 
 // Packets channel that sends incoming packets from input
-func (handler *HandlerSyslogTcp) Packets() chan syslog.Packet {
+func (handler *HandlerSyslogTCP) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
 // Pools returns whether this input pools or not.
-func (handler *HandlerSyslogTcp) Pools() bool {
+func (handler *HandlerSyslogTCP) Pools() bool {
 	return true
 }
 
 // Create a new syslog tcp input
-func Create(address string) (*HandlerSyslogTcp, error) {
-	return &HandlerSyslogTcp{
+func Create(address string) (*HandlerSyslogTCP, error) {
+	return &HandlerSyslogTCP{
 		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
 		stop:    make(chan struct{}, 1),
