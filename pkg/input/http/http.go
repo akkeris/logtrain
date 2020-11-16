@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-type HandlerHttpJSON struct {
+type HandlerHTTPJSON struct {
 	errors  chan error
 	packets chan syslog.Packet
 }
 
-func (handler *HandlerHttpJSON) httpError(response http.ResponseWriter, status int, err error) {
+func (handler *HandlerHTTPJSON) httpError(response http.ResponseWriter, status int, err error) {
 	response.WriteHeader(status)
 	response.Write([]byte(http.StatusText(status)))
 	select {
@@ -21,7 +21,7 @@ func (handler *HandlerHttpJSON) httpError(response http.ResponseWriter, status i
 	}
 }
 
-func (handler *HandlerHttpJSON) HandlerFunc(response http.ResponseWriter, req *http.Request) {
+func (handler *HandlerHTTPJSON) HandlerFunc(response http.ResponseWriter, req *http.Request) {
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		handler.httpError(response, http.StatusBadRequest, err)
@@ -43,30 +43,30 @@ func (handler *HandlerHttpJSON) HandlerFunc(response http.ResponseWriter, req *h
 	response.Write([]byte("ok"))
 }
 
-func (handler *HandlerHttpJSON) Close() error {
+func (handler *HandlerHTTPJSON) Close() error {
 	close(handler.packets)
 	close(handler.errors)
 	return nil
 }
 
-func (handler *HandlerHttpJSON) Dial() error {
+func (handler *HandlerHTTPJSON) Dial() error {
 	return nil
 }
 
-func (handler *HandlerHttpJSON) Errors() chan error {
+func (handler *HandlerHTTPJSON) Errors() chan error {
 	return handler.errors
 }
 
-func (handler *HandlerHttpJSON) Packets() chan syslog.Packet {
+func (handler *HandlerHTTPJSON) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-func (handler *HandlerHttpJSON) Pools() bool {
+func (handler *HandlerHTTPJSON) Pools() bool {
 	return true
 }
 
-func Create() (*HandlerHttpJSON, error) {
-	return &HandlerHttpJSON{
+func Create() (*HandlerHTTPJSON, error) {
+	return &HandlerHTTPJSON{
 		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
 	}, nil
