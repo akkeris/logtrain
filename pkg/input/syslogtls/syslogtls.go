@@ -31,7 +31,7 @@ func (handler *HandlerSyslogTLS) getServerConfig() (*tls.Config, error) {
 	}
 	if handler.caPem != "" {
 		if ok := capool.AppendCertsFromPEM([]byte(handler.caPem)); !ok {
-			return nil, errors.New("Unable to parse pem.")
+			return nil, errors.New("unable to parse pem")
 		}
 	}
 

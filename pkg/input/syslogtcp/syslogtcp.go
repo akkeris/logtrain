@@ -31,7 +31,7 @@ func (handler *HandlerSyslogTcp) Close() error {
 // Dial input handler.
 func (handler *HandlerSyslogTcp) Dial() error {
 	if handler.server != nil {
-		return errors.New("Dial may only be called once.")
+		return errors.New("dial may only be called once")
 	}
 
 	handler.server = server.NewServer()
