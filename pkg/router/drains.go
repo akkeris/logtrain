@@ -143,7 +143,7 @@ func (drain *Drain) Close() error {
 	drain.stop <- struct{}{}
 	drain.mutex.Lock()
 	defer drain.mutex.Unlock()
-	var err error = nil
+	var err error
 	for _, conn := range drain.connections {
 		debug.Debugf("[drains] Closing connection to %s\n", drain.Endpoint)
 		if err = conn.Close(); err != nil {

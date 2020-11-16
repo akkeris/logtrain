@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// Syslog creates a new syslog output to elasticsearch
 type Syslog struct {
 	node     string
 	index    string
@@ -33,6 +34,7 @@ func cleanString(str string) string {
 
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
+// Test the schema to see if its an elasticsearch schema
 func Test(endpoint string) bool {
 	for _, schema := range syslogSchemas {
 		if strings.HasPrefix(strings.ToLower(endpoint), schema) == true {
@@ -52,6 +54,7 @@ func toUrl(endpoint string) string {
 	return strings.Replace(strings.Replace(endpoint, "elasticsearch://", "https://", 1), "es://", "https://", 1)
 }
 
+// Create a new elasticsearch endpoint
 func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
@@ -79,21 +82,25 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
+// Dial connects to an elasticsearch
 func (log *Syslog) Dial() error {
 	go log.loop()
 	return nil
 }
 
+// Close closes the connection to elasticsearch
 func (log *Syslog) Close() error {
 	log.stop <- struct{}{}
 	close(log.packets)
 	return nil
 }
 
+// Pools returns whether the elasticsearch end point pools connections
 func (log *Syslog) Pools() bool {
 	return true
 }
 
+// Packets returns a channel to send syslog packets on
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
