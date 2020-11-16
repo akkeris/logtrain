@@ -54,19 +54,19 @@ kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
 
 Once deployed you can use the following annotations on deployments, daemonsets or statefulsets to forward logs.
 
-```
+```shell
 logtrain.akkeris.io/drains
 ```
 
 This annoation is a comma delimited list of drains (See Drain Types above).
 
-```
+```shell
 logtrain.akkeris.io/hostname
 ```
 
 Explicitly set the hostname used when reading in logs from kubernetes, if not set this will default to the `name.namespace`.
 
-```
+```shell
 logtrain.akkeris.io/tag
 ```
 
