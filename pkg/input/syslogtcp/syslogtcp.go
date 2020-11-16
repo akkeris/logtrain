@@ -87,7 +87,7 @@ func (handler *HandlerSyslogTcp) Dial() error {
 	return nil
 }
 
-// Error channel that sends errors occuring from input
+// Errors returns a channel that sends errors occuring from input
 func (handler *HandlerSyslogTcp) Errors() chan error {
 	return handler.errors
 }
@@ -97,7 +97,7 @@ func (handler *HandlerSyslogTcp) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-// Whether this input pools or not.
+// Pools returns whether this input pools or not.
 func (handler *HandlerSyslogTcp) Pools() bool {
 	return true
 }
