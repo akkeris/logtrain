@@ -21,8 +21,7 @@ type Syslog struct {
 
 var syslogSchemas = []string{"https://", "http://"}
 
-const MaxLogSize int = 99990
-
+// Test the schema to see if its https/http
 func Test(endpoint string) bool {
 	for _, schema := range syslogSchemas {
 		if strings.HasPrefix(strings.ToLower(endpoint), schema) == true {
@@ -32,6 +31,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
+// Create a new http json output.
 func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
@@ -51,22 +51,30 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
+// Dial connects to the specified http point
 func (log *Syslog) Dial() error {
 	go log.loop()
 	return nil
 }
+
+// Close closes the http output
 func (log *Syslog) Close() error {
 	log.closed = true
 	log.stop <- struct{}{}
 	close(log.packets)
 	return nil
 }
+
+// Pools returns whether the output pools connections
 func (log *Syslog) Pools() bool {
 	return true
 }
+
+// Packets returns a channel where packets can be sent to the http output handler
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
+
 func (log *Syslog) loop() {
 	for {
 		select {

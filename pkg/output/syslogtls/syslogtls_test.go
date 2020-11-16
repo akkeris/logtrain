@@ -171,7 +171,7 @@ func TestSyslogTlsOutput(t *testing.T) {
 		syslog.Packets() <- p
 		select {
 		case message := <-channel:
-			So(message, ShouldEqual, p.Generate(MaxLogSize)+"\n")
+			So(message, ShouldEqual, p.Generate(9990)+"\n")
 		case error := <-errorCh:
 			log.Fatal(error.Error())
 		}
