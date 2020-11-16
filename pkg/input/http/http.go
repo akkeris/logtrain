@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// HTTP/JSON Input handler
+// HandlerHTTPJSON is a HTTP/JSON Input handler
 type HandlerHTTPJSON struct {
 	errors  chan error
 	packets chan syslog.Packet
