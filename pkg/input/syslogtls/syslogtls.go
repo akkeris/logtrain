@@ -132,7 +132,7 @@ func (handler *HandlerSyslogTLS) Dial() error {
 	return nil
 }
 
-// Error channel that sends errors occuring from input
+// Errors channel that sends errors occuring from input
 func (handler *HandlerSyslogTLS) Errors() chan error {
 	return handler.errors
 }
@@ -142,7 +142,7 @@ func (handler *HandlerSyslogTLS) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-// Whether this input pools or not.
+// Pools returns whether the connection pools connections
 func (handler *HandlerSyslogTLS) Pools() bool {
 	return true
 }

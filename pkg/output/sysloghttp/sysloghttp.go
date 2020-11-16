@@ -21,7 +21,7 @@ type Syslog struct {
 
 var syslogSchemas = []string{"syslog+http://", "syslog+https://"}
 
-const MaxLogSize int = 99990
+const maxLogSize int = 99990
 
 // Test for a syslog http schema
 func Test(endpoint string) bool {
@@ -81,7 +81,7 @@ func (log *Syslog) loop() {
 	for {
 		select {
 		case p := <-log.packets:
-			payload = payload + p.Generate(MaxLogSize) + "\n"
+			payload = payload + p.Generate(maxLogSize) + "\n"
 		case <-timer.C:
 			if payload != "" {
 				resp, err := log.client.Post(log.url.String(), "application/syslog", strings.NewReader(string(payload)))
