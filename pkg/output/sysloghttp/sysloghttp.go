@@ -77,7 +77,7 @@ func (log *Syslog) Packets() chan syslog.Packet {
 
 func (log *Syslog) loop() {
 	timer := time.NewTicker(time.Second)
-	var payload string = ""
+	var payload string
 	for {
 		select {
 		case p := <-log.packets:

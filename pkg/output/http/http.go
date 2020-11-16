@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Syslog http ouput struct
 type Syslog struct {
 	url      url.URL
 	endpoint string

@@ -55,7 +55,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 			return nil, err
 		}
 		if ok := roots.AppendCertsFromPEM([]byte(decoded)); ok == false {
-			return nil, errors.New("The ca provided was invalid.")
+			return nil, errors.New("the ca provided was invalid")
 		}
 	}
 	return &Syslog{

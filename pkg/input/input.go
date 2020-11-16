@@ -4,6 +4,7 @@ import (
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
+// Input is the interface for all inputs
 type Input interface {
 	Close() error
 	Dial() error
