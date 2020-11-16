@@ -19,7 +19,7 @@ type Syslog struct {
 var syslogSchemas = []string{"syslog+tcp://"}
 
 const syslogNetwork = "tcp"
-const MaxLogSize int = 99990
+const maxLogSize int = 99990
 
 // Test for a syslog tcp schema
 func Test(endpoint string) bool {
@@ -47,9 +47,9 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
-// Connect to the syslog output
+// Dial connects to the syslog output
 func (log *Syslog) Dial() error {
-	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, nil, time.Second*4, time.Second*4, MaxLogSize)
+	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, nil, time.Second*4, time.Second*4, maxLogSize)
 	if err != nil {
 		return err
 	}
@@ -62,12 +62,12 @@ func (log *Syslog) Close() error {
 	return log.logger.Close()
 }
 
-// See if the syslog output pools
+// Pools checks to see if the syslog output pools
 func (log *Syslog) Pools() bool {
 	return false
 }
 
-// Send packets to the syslog endpoint
+// Packets returns a channel to send syslog packets on
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.logger.Packets
 }

@@ -97,7 +97,7 @@ func (handler *HandlerSyslogUdp) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-// Whether this input pools or not.
+// Pools returns whether the output pools  connections
 func (handler *HandlerSyslogUdp) Pools() bool {
 	return true
 }
