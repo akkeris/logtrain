@@ -44,7 +44,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
-func toUrl(endpoint string) string {
+func toURL(endpoint string) string {
 	if strings.Contains(endpoint, "+https://") == true {
 		return strings.Replace(strings.Replace(endpoint, "elasticsearch+https://", "https://", 1), "es+https://", "https://", 1)
 	}
@@ -59,7 +59,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
 	}
-	u, err := url.Parse(toUrl(endpoint))
+	u, err := url.Parse(toURL(endpoint))
 	if err != nil {
 		return nil, err
 	}
