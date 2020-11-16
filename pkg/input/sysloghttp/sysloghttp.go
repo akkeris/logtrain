@@ -6,13 +6,13 @@ import (
 	"net/http"
 )
 
-/* Handles Syslog HTTP inputs */
-type HandlerHttpSyslog struct {
+/* HandlerHTTPSyslog handles Syslog HTTP inputs */
+type HandlerHTTPSyslog struct {
 	errors  chan error
 	packets chan syslog.Packet
 }
 
-func (handler *HandlerHttpSyslog) httpError(response http.ResponseWriter, status int, err error) {
+func (handler *HandlerHTTPSyslog) httpError(response http.ResponseWriter, status int, err error) {
 	response.WriteHeader(status)
 	response.Write([]byte(http.StatusText(status)))
 	select {
@@ -21,8 +21,8 @@ func (handler *HandlerHttpSyslog) httpError(response http.ResponseWriter, status
 	}
 }
 
-// HTTP Handler Function for input
-func (handler *HandlerHttpSyslog) HandlerFunc(response http.ResponseWriter, req *http.Request) {
+// HandlerFunc is a HTTP Handler Function for input
+func (handler *HandlerHTTPSyslog) HandlerFunc(response http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	lr := newline.New(req.Body)
 	for line := range lr.Ch {
@@ -41,35 +41,35 @@ func (handler *HandlerHttpSyslog) HandlerFunc(response http.ResponseWriter, req 
 }
 
 // Close input handler.
-func (handler *HandlerHttpSyslog) Close() error {
+func (handler *HandlerHTTPSyslog) Close() error {
 	close(handler.packets)
 	close(handler.errors)
 	return nil
 }
 
 // Dial input handler.
-func (handler *HandlerHttpSyslog) Dial() error {
+func (handler *HandlerHTTPSyslog) Dial() error {
 	return nil
 }
 
-// Error channel that sends errors occuring from input
-func (handler *HandlerHttpSyslog) Errors() chan error {
+// Errors returns a channel that sends errors occuring from input
+func (handler *HandlerHTTPSyslog) Errors() chan error {
 	return handler.errors
 }
 
-// Packets channel that sends incoming packets from input
-func (handler *HandlerHttpSyslog) Packets() chan syslog.Packet {
+// Packets returns a channel that sends incoming packets from input
+func (handler *HandlerHTTPSyslog) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-// Whether this input pools or not.
-func (handler *HandlerHttpSyslog) Pools() bool {
+// Pools returns whether this input pools connections or not.
+func (handler *HandlerHTTPSyslog) Pools() bool {
 	return true
 }
 
 // Create a new syslog http input
-func Create() (*HandlerHttpSyslog, error) {
-	return &HandlerHttpSyslog{
+func Create() (*HandlerHTTPSyslog, error) {
+	return &HandlerHTTPSyslog{
 		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 100),
 	}, nil
