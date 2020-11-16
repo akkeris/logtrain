@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+/* Handles Syslog TCP inputs */
 type HandlerSyslogTcp struct {
 	errors  chan error
 	packets chan syslog.Packet
@@ -16,6 +17,7 @@ type HandlerSyslogTcp struct {
 	address string
 }
 
+// Close input handler.
 func (handler *HandlerSyslogTcp) Close() error {
 	handler.stop <- struct{}{}
 	handler.server.Kill()
@@ -26,6 +28,7 @@ func (handler *HandlerSyslogTcp) Close() error {
 	return nil
 }
 
+// Dial input handler.
 func (handler *HandlerSyslogTcp) Dial() error {
 	if handler.server != nil {
 		return errors.New("Dial may only be called once.")
@@ -44,12 +47,12 @@ func (handler *HandlerSyslogTcp) Dial() error {
 		for {
 			select {
 			case message := <-handler.channel:
-				var severity int = 0
-				var facility int = 0
-				var hostname string = ""
-				var tag string = ""
+				var severity int
+				var facility int
+				var hostname string
+				var tag string
 				var timestamp time.Time = time.Now()
-				var msg string = ""
+				var msg string
 				if s, ok := message["severity"].(int); ok {
 					severity = s
 				}
@@ -84,18 +87,22 @@ func (handler *HandlerSyslogTcp) Dial() error {
 	return nil
 }
 
+// Error channel that sends errors occuring from input
 func (handler *HandlerSyslogTcp) Errors() chan error {
 	return handler.errors
 }
 
+// Packets channel that sends incoming packets from input
 func (handler *HandlerSyslogTcp) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
+// Whether this input pools or not.
 func (handler *HandlerSyslogTcp) Pools() bool {
 	return true
 }
 
+// Create a new syslog tcp input
 func Create(address string) (*HandlerSyslogTcp, error) {
 	return &HandlerSyslogTcp{
 		errors:  make(chan error, 1),

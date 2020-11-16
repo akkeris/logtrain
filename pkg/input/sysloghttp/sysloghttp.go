@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+/* Handles Syslog HTTP inputs */
 type HandlerHttpSyslog struct {
 	errors  chan error
 	packets chan syslog.Packet
@@ -20,6 +21,7 @@ func (handler *HandlerHttpSyslog) httpError(response http.ResponseWriter, status
 	}
 }
 
+// HTTP Handler Function for input
 func (handler *HandlerHttpSyslog) HandlerFunc(response http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	lr := newline.New(req.Body)
@@ -38,28 +40,34 @@ func (handler *HandlerHttpSyslog) HandlerFunc(response http.ResponseWriter, req 
 	response.Write([]byte("ok"))
 }
 
+// Close input handler.
 func (handler *HandlerHttpSyslog) Close() error {
 	close(handler.packets)
 	close(handler.errors)
 	return nil
 }
 
+// Dial input handler.
 func (handler *HandlerHttpSyslog) Dial() error {
 	return nil
 }
 
+// Error channel that sends errors occuring from input
 func (handler *HandlerHttpSyslog) Errors() chan error {
 	return handler.errors
 }
 
+// Packets channel that sends incoming packets from input
 func (handler *HandlerHttpSyslog) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
+// Whether this input pools or not.
 func (handler *HandlerHttpSyslog) Pools() bool {
 	return true
 }
 
+// Create a new syslog http input
 func Create() (*HandlerHttpSyslog, error) {
 	return &HandlerHttpSyslog{
 		errors:  make(chan error, 1),

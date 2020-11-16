@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+/* Handles Syslog UDP inputs */
 type HandlerSyslogUdp struct {
 	errors  chan error
 	packets chan syslog.Packet
@@ -16,6 +17,7 @@ type HandlerSyslogUdp struct {
 	address string
 }
 
+// Close input handler.
 func (handler *HandlerSyslogUdp) Close() error {
 	handler.stop <- struct{}{}
 	handler.server.Kill()
@@ -26,6 +28,7 @@ func (handler *HandlerSyslogUdp) Close() error {
 	return nil
 }
 
+// Dial input handler.
 func (handler *HandlerSyslogUdp) Dial() error {
 	if handler.server != nil {
 		return errors.New("Dial may only be called once.")
@@ -44,12 +47,12 @@ func (handler *HandlerSyslogUdp) Dial() error {
 		for {
 			select {
 			case message := <-handler.channel:
-				var severity int = 0
-				var facility int = 0
-				var hostname string = ""
-				var tag string = ""
+				var severity int
+				var facility int
+				var hostname string 
+				var tag string
 				var timestamp time.Time = time.Now()
-				var msg string = ""
+				var msg string
 				if s, ok := message["severity"].(int); ok {
 					severity = s
 				}
@@ -84,18 +87,22 @@ func (handler *HandlerSyslogUdp) Dial() error {
 	return nil
 }
 
+// Error channel that sends errors occuring from input
 func (handler *HandlerSyslogUdp) Errors() chan error {
 	return handler.errors
 }
 
+// Packets channel that sends incoming packets from input
 func (handler *HandlerSyslogUdp) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
+// Whether this input pools or not.
 func (handler *HandlerSyslogUdp) Pools() bool {
 	return true
 }
 
+// Create a new syslog udp input
 func Create(address string) (*HandlerSyslogUdp, error) {
 	return &HandlerSyslogUdp{
 		errors:  make(chan error, 1),
