@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Syslog tls output structure
 type Syslog struct {
 	url      url.URL
 	endpoint string
@@ -24,6 +25,7 @@ var syslogSchemas = []string{"syslog+tls://"}
 const syslogNetwork = "tls"
 const MaxLogSize int = 99990
 
+// Test for a syslog tls schema
 func Test(endpoint string) bool {
 	for _, schema := range syslogSchemas {
 		if strings.HasPrefix(strings.ToLower(endpoint), schema) == true {
@@ -33,6 +35,7 @@ func Test(endpoint string) bool {
 	return false
 }
 
+// Create a syslog tls output
 func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if Test(endpoint) == false {
 		return nil, errors.New("Invalid endpoint")
@@ -63,6 +66,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	}, nil
 }
 
+// Connect to the syslog output
 func (log *Syslog) Dial() error {
 	debug.Debugf("[syslog+tls/output]: Dial called for %s\n", log.endpoint)
 	dest, err := syslog.Dial("logtrain.akkeris-system.svc.cluster.local", syslogNetwork, log.url.Host, log.roots, time.Second*4, time.Second*4, MaxLogSize)
@@ -73,16 +77,19 @@ func (log *Syslog) Dial() error {
 	log.logger = dest
 	return nil
 }
+
+// Close the syslog output
 func (log *Syslog) Close() error {
 	debug.Debugf("[syslog+tls/output]: Close called for %s\n", log.endpoint)
 	return log.logger.Close()
 }
+
+// See if the syslog output pools
 func (log *Syslog) Pools() bool {
 	return false
 }
+
+// Send packets to the syslog endpoint
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.logger.Packets
-}
-func (log *Syslog) Errors() chan error {
-	return log.logger.Errors
 }
