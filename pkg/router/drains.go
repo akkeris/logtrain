@@ -31,6 +31,8 @@ const drainErrorThreshold = 100     // the threshold for when we should pause th
 const drainErrorPercentage = 0.5	// the threshold for the percentage of the sent message resulted in errors.
 const drainErrorTimeoutInMins = 5	// The amount of minutes to pause the stream if there are errors.
 
+// Drain creates an output to the specified schema and manages
+// back pressure and sends packets down to the ouptut.
 type Drain struct {
 	Input          chan syslog.Packet
 	Info           chan string
@@ -50,12 +52,13 @@ type Drain struct {
 	scaling        bool
 }
 
+// Create a new drain
 func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error) {
 	if maxconnections > 1024 {
-		return nil, errors.New("Max connections must not be more than 1024.")
+		return nil, errors.New("max connections must not be more than 1024")
 	}
 	if maxconnections == 0 {
-		return nil, errors.New("Max connections must not be 0.")
+		return nil, errors.New("max connections must not be 0")
 	}
 	drain := Drain{
 		Endpoint:       endpoint,
@@ -82,35 +85,42 @@ func Create(endpoint string, maxconnections uint32, sticky bool) (*Drain, error)
 	return &drain, nil
 }
 
+// MaxConnections returns the maximum allowed connections
 func (drain *Drain) MaxConnections() uint32 {
 	return drain.maxconnections
 }
 
+// OpenConnections returns the open connections
 func (drain *Drain) OpenConnections() uint32 {
 	return drain.open
 }
 
+// Pressure returns a value between 0-1 represent the percent of full buffers
 func (drain *Drain) Pressure() float64 {
 	return drain.pressure
 }
 
+// Sent returns the amount of packets sent since inception or the last time ResetMetrics was fired
 func (drain *Drain) Sent() uint32 {
 	return drain.sent
 }
 
+// Errors returns the amount of errors that has occured on the drain
 func (drain *Drain) Errors() uint32 {
 	return drain.errors
 }
 
+// ResetMetrics sets the sent and errors values to zero
 func (drain *Drain) ResetMetrics() {
 	drain.sent = 0
 	drain.errors = 0
 }
 
+// Dial connects to the endpoint via the specified schema
 func (drain *Drain) Dial() error {
 	debug.Infof("[drains] Dailing drain %s...\n", drain.Endpoint)
 	if drain.open != 0 {
-		return errors.New("Dial should not be called twice.")
+		return errors.New("dial should not be called twice")
 	}
 	if err := drain.connect(); err != nil {
 		debug.Debugf("[drains] a call to connect resulted in an error: %s\n", err.Error())
@@ -127,6 +137,7 @@ func (drain *Drain) Dial() error {
 	return nil
 }
 
+// Close closes the drain
 func (drain *Drain) Close() error {
 	debug.Infof("[drains] Closing all connections in drain to %s\n", drain.Endpoint)
 	drain.stop <- struct{}{}
