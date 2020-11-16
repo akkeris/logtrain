@@ -18,6 +18,7 @@ import (
 	"time"
 )
 
+// Envoy ALS Server structure.
 type EnvoyAlsServer struct {
 	address   string
 	marshaler jsonpb.Marshaler
@@ -87,6 +88,7 @@ func layout(envoyMsg *v2data.HTTPAccessLogEntry) string {
 		"path=" + envoyMsg.Request.Path
 }
 
+// Close closes the envoy handler
 func (s *EnvoyAlsServer) Close() error {
 	s.server.Stop()
 	close(s.packets)
@@ -94,6 +96,7 @@ func (s *EnvoyAlsServer) Close() error {
 	return nil
 }
 
+// StreamAccessLogs is part of the interface called by the GRPC library from envoy
 func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAccessLogsServer) error {
 	s.marshaler.OrigName = true
 	debug.Infof("[envoy] Started envoy access log stream\n")
@@ -134,18 +137,22 @@ func (s *EnvoyAlsServer) StreamAccessLogs(stream v2.AccessLogService_StreamAcces
 	}
 }
 
+// Pools returns whether the input pools connections
 func (s *EnvoyAlsServer) Pools() bool {
 	return true
 }
 
+// Packets returns a channel where packets from the input are received
 func (s *EnvoyAlsServer) Packets() chan syslog.Packet {
 	return s.packets
 }
 
+// Errors returns a channel where errors from the input channel are recieved.
 func (s *EnvoyAlsServer) Errors() chan error {
 	return s.errors
 }
 
+// Dial connects the handler
 func (s *EnvoyAlsServer) Dial() error {
 	if s.server != nil {
 		return errors.New("Dial may only be called once.")
@@ -160,6 +167,7 @@ func (s *EnvoyAlsServer) Dial() error {
 	return nil
 }
 
+// Create creates an envoy input handler.
 func Create(address string) (*EnvoyAlsServer, error) {
 	if address == "" {
 		address = ":9001"

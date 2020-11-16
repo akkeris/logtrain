@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+// HTTP/JSON Input handler
 type HandlerHTTPJSON struct {
 	errors  chan error
 	packets chan syslog.Packet
@@ -21,6 +22,7 @@ func (handler *HandlerHTTPJSON) httpError(response http.ResponseWriter, status i
 	}
 }
 
+// HandlerFunc handles http input
 func (handler *HandlerHTTPJSON) HandlerFunc(response http.ResponseWriter, req *http.Request) {
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -43,28 +45,34 @@ func (handler *HandlerHTTPJSON) HandlerFunc(response http.ResponseWriter, req *h
 	response.Write([]byte("ok"))
 }
 
+// Close closes the handler.
 func (handler *HandlerHTTPJSON) Close() error {
 	close(handler.packets)
 	close(handler.errors)
 	return nil
 }
 
+// Dial opens the handler.
 func (handler *HandlerHTTPJSON) Dial() error {
 	return nil
 }
 
+// Errors returns a channel to receive errors from the handler
 func (handler *HandlerHTTPJSON) Errors() chan error {
 	return handler.errors
 }
 
+// Packets returns a channel to receive packets from the input handler
 func (handler *HandlerHTTPJSON) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
+// Pools returns whether the input pools 
 func (handler *HandlerHTTPJSON) Pools() bool {
 	return true
 }
 
+// Create will create a new HandlerHTTPJSON
 func Create() (*HandlerHTTPJSON, error) {
 	return &HandlerHTTPJSON{
 		errors:  make(chan error, 1),
