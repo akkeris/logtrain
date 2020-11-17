@@ -34,8 +34,10 @@ var creationScript = `
 do
 $do$
 begin
+	create extension if not exists "uuid-ossp";
+
 	create table if not exists drains (
-		drain varchar(128) primary key,
+		drain uuid primary key default uuid_generate_v4(),
 		hostname text not null,
 		endpoint text not null,
 		created timestamptz,
@@ -167,10 +169,6 @@ func (pds *PostgresDataSource) listenForChanges() {
 		}
 	}
 }
-
-// TODO: Support regex in the hostname.
-// TODO: Add datasource that's a configmap.
-// TODO: Add a command line data source
 
 func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*PostgresDataSource, error) {
 	pds := PostgresDataSource{

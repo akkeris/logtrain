@@ -20,6 +20,7 @@ const DrainAnnotationKey = "logtrain.akkeris.io/drains"
 const HostnameAnnotationKey = "logtrain.akkeris.io/hostname"
 const TagAnnotationKey = "logtrain.akkeris.io/tag"
 
+// KubernetesDataSource uses kubernetes as a datasource for routes by listening to annotations
 type KubernetesDataSource struct {
 	useAkkerisHosts bool
 	stop            chan struct{}
@@ -29,6 +30,7 @@ type KubernetesDataSource struct {
 	routes          []LogRoute
 }
 
+// GetHostNameFromTLO derives a hostname from an object in kubernetes
 func GetHostNameFromTLO(kube kubernetes.Interface, obj meta.Object, useAkkerisHosts bool) string {
 	if host, ok := obj.GetAnnotations()[HostnameAnnotationKey]; ok {
 		return host
@@ -39,18 +41,22 @@ func GetHostNameFromTLO(kube kubernetes.Interface, obj meta.Object, useAkkerisHo
 	return obj.GetName() + "." + obj.GetNamespace()
 }
 
+// AddRoute returns a channel where new routes are published to
 func (kds *KubernetesDataSource) AddRoute() chan LogRoute {
 	return kds.add
 }
 
+// RemoveRoute returns a channel where route removals are published
 func (kds *KubernetesDataSource) RemoveRoute() chan LogRoute {
 	return kds.remove
 }
 
+// GetAllRoutes returns all routes the datasource is aware of
 func (kds *KubernetesDataSource) GetAllRoutes() ([]LogRoute, error) {
 	return kds.routes, nil
 }
 
+// Close closes the data sources
 func (kds *KubernetesDataSource) Close() error {
 	kds.stop <- struct{}{}
 	return nil
@@ -161,6 +167,7 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 	}
 }
 
+// CreateKubernetesDataSource creates a new kubernetes data source from a kube client
 func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSource, error) {
 	useAkkeris := false
 	if os.Getenv("AKKERIS") == "true" {
