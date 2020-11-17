@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
+    - name: Show github ref
+      run: echo $GITHUB_REF
     - name: Replace ref in daemonset
       run: sed -E -i 's/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/logtrain\:'"$GITHUB_REF"'/g' deployments/kubernetes/logtrain-daemonset.yaml
     - uses: github-actions-x/commit@v2.6
