@@ -8,9 +8,9 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Show github ref
-      run: echo $GITHUB_REF
+      run: echo $GITHUB_REF and ${GITHUB_REF/refs\/tags\//}
     - name: Replace ref in daemonset
-      run: sed -E -i 's/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/logtrain\:'"$GITHUB_REF"'/g' deployments/kubernetes/logtrain-daemonset.yaml
+      run: sed -E -i 's/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/logtrain\:'"${GITHUB_REF/refs\/tags\//}"'/g' deployments/kubernetes/logtrain-daemonset.yaml
     - uses: github-actions-x/commit@v2.6
       with:
         commit-message: update daemonset image
