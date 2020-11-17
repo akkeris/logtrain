@@ -20,8 +20,8 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: cat deployments/kubernetes/logtrain-daemonset.yaml | sed -r "s/akkeris\/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/akkeris\/logtrain:$GITHUB_REF/g" > deployments/kubernetes/logtrain-daemonset.yaml 
-        run: Replace ref in daemonset
+      - name: Replace ref in daemonset
+        run: cat deployments/kubernetes/logtrain-daemonset.yaml | sed -r "s/akkeris\/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/akkeris\/logtrain:$GITHUB_REF/g" > deployments/kubernetes/logtrain-daemonset.yaml 
 
       - uses: github-actions-x/commit@v2.6
         with:
