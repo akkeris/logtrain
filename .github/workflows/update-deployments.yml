@@ -13,5 +13,6 @@ jobs:
       run: sed -E -i 's/logtrain:v[0-9]+\.[0-9]+\.[0-9]+/logtrain\:'"${GITHUB_REF/refs\/tags\//}"'/g' deployments/kubernetes/logtrain-daemonset.yaml
     - uses: github-actions-x/commit@v2.6
       with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: update daemonset image
         push-branch: main
