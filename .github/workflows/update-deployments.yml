@@ -14,3 +14,4 @@ jobs:
     - uses: github-actions-x/commit@v2.6
       with:
         commit-message: update daemonset image
+        push-branch: main
