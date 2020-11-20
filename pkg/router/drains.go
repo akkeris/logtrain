@@ -28,8 +28,8 @@ const decreasePercentTrigger = 0.02 // 2% full.
 const decreaseTrendTrigger = 0.00   // pressure has been decreasing on average.
 const bufferSize = 1024             // amount of records to keep in memory until upstream fails.
 const drainErrorThreshold = 100     // the threshold for when we should pause the drain.
-const drainErrorPercentage = 0.5	// the threshold for the percentage of the sent message resulted in errors.
-const drainErrorTimeoutInMins = 5	// The amount of minutes to pause the stream if there are errors.
+const drainErrorPercentage = 0.5    // the threshold for the percentage of the sent message resulted in errors.
+const drainErrorTimeoutInMins = 5   // The amount of minutes to pause the stream if there are errors.
 
 // Drain creates an output to the specified schema and manages
 // back pressure and sends packets down to the ouptut.
@@ -259,7 +259,7 @@ func (drain *Drain) loopSticky() {
 			if err != nil && drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
 			}
-			if float64(drain.errors) > (float64(drain.sent) * drainErrorPercentage) && drain.errors < drainErrorThreshold {
+			if float64(drain.errors) > (float64(drain.sent)*drainErrorPercentage) && drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] Pausing drain %s as it has incurred too many errors.\n", drain.Endpoint)
 				<-time.NewTimer(time.Minute * drainErrorTimeoutInMins).C
 			}
@@ -284,7 +284,7 @@ func (drain *Drain) loopTransportPools() {
 			if err != nil && drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
 			}
-			if float64(drain.errors) > (float64(drain.sent) * drainErrorPercentage) && drain.errors < drainErrorThreshold {
+			if float64(drain.errors) > (float64(drain.sent)*drainErrorPercentage) && drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] Pausing drain %s as it has incurred too many errors.\n", drain.Endpoint)
 				<-time.NewTimer(time.Minute * drainErrorTimeoutInMins).C
 			}

@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/trevorlinton/remote_syslog2/syslog"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"io/ioutil"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +24,6 @@ type Syslog struct {
 	errors   chan<- error
 	stop     chan struct{}
 }
-
 
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
 
@@ -115,12 +114,12 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload += "{\"create\":{ \"_source\": \"logtrain\" \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" + 
-				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) + 
-				"\", \"hostname\":\"" + cleanString(p.Hostname) + 
-				"\", \"tag\":\"" + cleanString(p.Tag) + 
-				"\", \"message\":\"" + cleanString(p.Message) + 
-				"\", \"severity\":" + strconv.Itoa(int(p.Severity)) + 
+			payload += "{\"create\":{ \"_source\": \"logtrain\" \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
+				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
+				"\", \"hostname\":\"" + cleanString(p.Hostname) +
+				"\", \"tag\":\"" + cleanString(p.Tag) +
+				"\", \"message\":\"" + cleanString(p.Message) +
+				"\", \"severity\":" + strconv.Itoa(int(p.Severity)) +
 				", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
 		case <-timer.C:
 			if payload != "" {

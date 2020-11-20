@@ -22,7 +22,7 @@ import (
  * - Add inputs to the router (anything in ./pkg/input/).
  * - Router automatically creates ./pkg/output through the drains based on needs.
  * - The router and drains have a 1-many relationship, yet tightly dependent/coupled.
-*/
+ */
 
 type Metric struct {
 	MaxConnections uint32

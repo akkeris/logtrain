@@ -12,16 +12,16 @@ import (
 
 /* Handles Syslog TLS inputs */
 type HandlerSyslogTLS struct {
-	errors      chan error
-	packets     chan syslog.Packet
-	stop        chan struct{}
-	channel     server.LogPartsChannel
-	server      *server.Server
-	serverName  string
-	keyPem      string
-	certPem     string
-	caPem       string
-	address     string
+	errors     chan error
+	packets    chan syslog.Packet
+	stop       chan struct{}
+	channel    server.LogPartsChannel
+	server     *server.Server
+	serverName string
+	keyPem     string
+	certPem    string
+	caPem      string
+	address    string
 }
 
 func (handler *HandlerSyslogTLS) getServerConfig() (*tls.Config, error) {
@@ -150,15 +150,15 @@ func (handler *HandlerSyslogTLS) Pools() bool {
 // Create a new syslog tls input
 func Create(serverName string, keyPem string, certPem string, caPem string, address string) (*HandlerSyslogTLS, error) {
 	return &HandlerSyslogTLS{
-		errors:      make(chan error, 1),
-		packets:     make(chan syslog.Packet, 100),
-		stop:        make(chan struct{}, 1),
-		channel:     make(server.LogPartsChannel),
-		server:      nil,
+		errors:     make(chan error, 1),
+		packets:    make(chan syslog.Packet, 100),
+		stop:       make(chan struct{}, 1),
+		channel:    make(server.LogPartsChannel),
+		server:     nil,
 		serverName: serverName,
 		keyPem:     keyPem,
 		certPem:    certPem,
 		caPem:      caPem,
-		address:     address,
+		address:    address,
 	}, nil
 }

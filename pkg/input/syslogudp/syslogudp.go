@@ -49,7 +49,7 @@ func (handler *HandlerSyslogUDP) Dial() error {
 			case message := <-handler.channel:
 				var severity int
 				var facility int
-				var hostname string 
+				var hostname string
 				var tag string
 				var timestamp time.Time = time.Now()
 				var msg string

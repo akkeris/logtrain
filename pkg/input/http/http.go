@@ -67,7 +67,7 @@ func (handler *HandlerHTTPJSON) Packets() chan syslog.Packet {
 	return handler.packets
 }
 
-// Pools returns whether the input pools 
+// Pools returns whether the input pools
 func (handler *HandlerHTTPJSON) Pools() bool {
 	return true
 }

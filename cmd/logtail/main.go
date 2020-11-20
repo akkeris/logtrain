@@ -6,22 +6,22 @@ import (
 	"flag"
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
-	envoy "github.com/akkeris/logtrain/pkg/input/envoy"
-	http_events "github.com/akkeris/logtrain/pkg/input/http"
-	kube "github.com/akkeris/logtrain/pkg/input/kubernetes"
-	"github.com/akkeris/logtrain/pkg/input/sysloghttp"
 	"github.com/akkeris/logtrain/pkg/input/syslogtcp"
 	"github.com/akkeris/logtrain/pkg/input/syslogtls"
 	"github.com/akkeris/logtrain/pkg/input/syslogudp"
+	"github.com/akkeris/logtrain/pkg/output/memory"
 	"github.com/akkeris/logtrain/pkg/router"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"os/signal"
 	rpprof "runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -32,48 +32,7 @@ var options struct {
 	KubeConfig string
 }
 
-var (
-	syslogConnections = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_connections",
-			Help:       "Amount of syslog outbound connections.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogPressure = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_pressure",
-			Help:       "The percentage of buffers that are full waiting to be sent.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogSent = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_sent",
-			Help:       "The amount of packets sent via a syslog (successful or not).",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogErrors = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_errors",
-			Help:       "The amount of packets that could not be sent.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogDeadPackets = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_deadpackets",
-			Help:       "The amount of packets received with no route.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"service"},
-	)
-)
+var maxLogSize = 99990
 
 type httpServer struct {
 	mux    *http.ServeMux
@@ -111,23 +70,7 @@ func init() {
 	flag.StringVar(&options.MemProfile, "memprofile", "", "write mem profile to file")
 	flag.StringVar(&options.KubeConfig, "kube-config", "", "specify the kube config path to be used")
 	flag.Parse()
-	prometheus.MustRegister(syslogErrors)
-	prometheus.MustRegister(syslogSent)
-	prometheus.MustRegister(syslogPressure)
-	prometheus.MustRegister(syslogConnections)
-	prometheus.MustRegister(syslogDeadPackets)
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
-}
-
-func createRouter(ds []storage.DataSource) (*router.Router, error) {
-	r, err := router.NewRouter(ds, true, 40 /* max connections */)
-	if err != nil {
-		return nil, err
-	}
-	if err := r.Dial(); err != nil {
-		return nil, err
-	}
-	return r, nil
 }
 
 func getOsOrDefault(key string, def string) string {
@@ -140,61 +83,6 @@ func getOsOrDefault(key string, def string) string {
 
 func addInputsToRouter(router *router.Router, server *httpServer) error {
 	var addedInput = false
-	// Check to see if we should add istio/envoy inputs
-	if os.Getenv("ENVOY") == "true" {
-		address := ":"
-		if os.Getenv("ENVOY_PORT") != "" {
-			address = address + os.Getenv("ENVOY_PORT")
-		} else {
-			address = address + "9001"
-		}
-		in, err := envoy.Create(address)
-		if err != nil {
-			return err
-		}
-		if err := in.Dial(); err != nil {
-			return err
-		}
-		if err := router.AddInput(in, "istio+envoy"); err != nil {
-			return err
-		}
-		addedInput = true
-		log.Printf("[main] Added envoy on port %s\n", getOsOrDefault("ENVOY_PORT", "9001"))
-	}
-
-	// Check to see if http events will be used as an input
-	if os.Getenv("HTTP_EVENTS") == "true" {
-		handle, err := http_events.Create()
-		if err != nil {
-			return err
-		}
-		if err := handle.Dial(); err != nil {
-			return err
-		}
-		server.mux.HandleFunc(getOsOrDefault("HTTP_EVENTS_PATH", "/events"), handle.HandlerFunc)
-		if err := router.AddInput(handle, "http"); err != nil {
-			return err
-		}
-		addedInput = true
-		log.Printf("[main] Added http endpoint %s for JSON syslog payloads\n", getOsOrDefault("HTTP_EVENTS_PATH", "/events"))
-	}
-
-	// Check to see if syslog over http will be used as an input
-	if os.Getenv("HTTP_SYSLOG") == "true" {
-		handle, err := sysloghttp.Create()
-		if err != nil {
-			return err
-		}
-		if err := handle.Dial(); err != nil {
-			return err
-		}
-		server.mux.HandleFunc(getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"), handle.HandlerFunc)
-		if err := router.AddInput(handle, "sysloghttp"); err != nil {
-			return err
-		}
-		addedInput = true
-		log.Printf("[main] Added syslog over http on path %s \n", getOsOrDefault("HTTP_SYSLOG_PATH", "/syslog"))
-	}
 
 	// Check to see if syslog over tcp will be used.
 	if os.Getenv("SYSLOG_TCP") == "true" {
@@ -253,63 +141,47 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		log.Printf("[main] Added syslog over tcp+tls on port %s \n", getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
 	}
 
-	// Check to see if we should add kubernetes as an input
-	if os.Getenv("KUBERNETES") == "true" {
-		k8sClient, err := storage.GetKubernetesClient(options.KubeConfig)
-		if err != nil {
-			return err
-		}
-		in, err := kube.Create(os.Getenv("KUBERNETES_LOG_PATH"), k8sClient)
-		if err != nil {
-			return err
-		}
-		if err := in.Dial(); err != nil {
-			return err
-		}
-		if err := router.AddInput(in, "kubernetes"); err != nil {
-			return err
-		}
-		addedInput = true
-		log.Printf("[main] Added kubernetes file watcher\n")
-	}
-
 	if !addedInput {
 		return errors.New("No data inputs were found.")
 	}
 	return nil
 }
 
-func prometheusMetricsLoop(router *router.Router) {
-	ticker := time.NewTicker(time.Minute * 5)
-	for {
-		select {
-		case <-ticker.C:
-			metrics := router.Metrics()
-			for endpoint, metric := range metrics {
-				syslogConnections.WithLabelValues(endpoint).Observe(float64(metric.Connections))
-				syslogPressure.WithLabelValues(endpoint).Observe(metric.Pressure)
-				syslogErrors.WithLabelValues(endpoint).Observe(float64(metric.Errors))
-				syslogSent.WithLabelValues(endpoint).Observe(float64(metric.Sent))
-
-				// TODO: sanitize endpoint.
-			}
-			syslogDeadPackets.WithLabelValues("uniform").Observe(float64(router.DeadPackets()))
-			router.ResetMetrics()
-		}
+func createRouter(ds []storage.DataSource) (*router.Router, error) {
+	r, err := router.NewRouter(ds, true, 40 /* max connections */)
+	if err != nil {
+		return nil, err
 	}
+	if err := r.Dial(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func createHttpServer(port string) *httpServer {
 	mux := http.NewServeMux()
-	return &httpServer{
+	service := &httpServer{
 		mux: mux,
 		server: &http.Server{
 			Addr:           ":" + port,
 			Handler:        mux,
-			ReadTimeout:    60 * time.Second,
-			WriteTimeout:   120 * time.Second, // Must be above 30 seconds for pprof.
+			IdleTimeout:    600 * time.Second,
+			ReadTimeout:    600 * time.Second,
+			WriteTimeout:   600 * time.Second, // Must be above 30 seconds for pprof.
 			MaxHeaderBytes: 1 << 20,
 		},
+	}
+	service.server.SetKeepAlivesEnabled(true)
+	return service
+}
+
+func getTailsEndpoint() string {
+	if os.Getenv("SYSLOG_TLS") == "true" {
+		return "syslog+tls://" + os.Getenv("NAME") + "." + os.Getenv("NAMESPACE") + ":" + getOsOrDefault("SYSLOG_TCP_PORT", "9004")
+	} else if os.Getenv("SYSLOG_TCP") == "true" {
+		return "syslog+tcp://" + os.Getenv("NAME") + "." + os.Getenv("NAMESPACE") + ":" + getOsOrDefault("SYSLOG_TLS_PORT", "9002")
+	} else {
+		return "syslog+udp://" + os.Getenv("NAME") + "." + os.Getenv("NAMESPACE") + ":" + getOsOrDefault("SYSLOG_UDP_PORT", "9003")
 	}
 }
 
@@ -340,21 +212,103 @@ func runWithContext(ctx context.Context) error {
 
 	go httpServer.server.ListenAndServe()
 
-	ds, err := storage.FindDataSources(os.Getenv("KUBERNETES_DATASOURCE") == "true", options.KubeConfig, os.Getenv("POSTGRES") == "true", os.Getenv("DATABASE_URL"))
+	dss, err := storage.FindDataSources(os.Getenv("KUBERNETES_DATASOURCE") == "true", options.KubeConfig, os.Getenv("POSTGRES") == "true", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		return err
 	}
-	if len(ds) == 0 {
+	// Find only the writable resources
+	dssw := make([]storage.DataSource, 0)
+	for _, d := range dss {
+		if d.Writable() == true {
+			dssw = append(dssw, d)
+		}
+	}
+	if len(dssw) == 0 {
 		return errors.New("No data sources were defined, either kubernetes or postgresql are required.")
 	}
-	router, err := createRouter(ds)
+
+	// create a dummy data source
+	ds := storage.CreateMemoryDataSource()
+
+	// create a router
+	router, err := createRouter([]storage.DataSource{ds})
 	if err != nil {
 		return err
 	}
+
+	// Add listeners to router
 	if err := addInputsToRouter(router, httpServer); err != nil {
 		return err
 	}
-	prometheusMetricsLoop(router) // This never returns
+
+	// respond to tail requests
+	httpServer.mux.HandleFunc("/tails/", func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodPost {
+			http.NotFound(w, req)
+			return
+		}
+		pathSegments := strings.Split(req.URL.Path, "/")
+		if len(pathSegments) < 3 {
+			http.NotFound(w, req)
+			return
+		}
+		if pathSegments[2] == "" {
+			http.NotFound(w, req)
+			return
+		}
+		host := pathSegments[2]
+
+		uid := uuid.New()
+		c := make(chan syslog.Packet, 1)
+		memory.GlobalInternalOutputs[uid.String()] = c
+		timer := time.NewTimer(time.Minute * 30)
+
+		// place a route to send everything coming from our syslog listener to
+		// go to our channel we made above
+		ds.EmitNewRoute(storage.LogRoute{
+			Hostname: host,
+			Endpoint: "memory://localhost/" + uid.String(),
+		})
+
+		// tell all other logtrains to forward traffic to us.
+		dssw[0].EmitNewRoute(storage.LogRoute{
+			Hostname: host,
+			Endpoint: getTailsEndpoint(),
+		})
+
+		// To keep alive hte response writer we cannot return, returning out of
+		// this will cause the writer to be closed, this is executed as part of
+		// an existing go-routine from the http server.
+		for {
+			select {
+			case msg := <-c:
+				if _, err := w.Write([]byte(msg.Generate(maxLogSize) + "\n")); err != nil {
+					ds.EmitRemoveRoute(storage.LogRoute{
+						Hostname: host,
+						Endpoint: "internal://localhost/" + uid.String(),
+					})
+					dssw[0].EmitRemoveRoute(storage.LogRoute{
+						Hostname: host,
+						Endpoint: getTailsEndpoint(),
+					})
+					close(c)
+					return
+				}
+			case <-timer.C:
+				ds.EmitRemoveRoute(storage.LogRoute{
+					Hostname: host,
+					Endpoint: "internal://localhost/" + uid.String(),
+				})
+				dssw[0].EmitRemoveRoute(storage.LogRoute{
+					Hostname: host,
+					Endpoint: getTailsEndpoint(),
+				})
+				close(c)
+				return
+			}
+		}
+	})
+
 	return nil
 }
 

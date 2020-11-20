@@ -8,6 +8,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.9.7
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/golang/protobuf v1.4.3
+	github.com/google/uuid v1.1.2
 	github.com/howbazaar/loggo v0.0.0-20160511211902-0e0537f18a29 // indirect
 	github.com/influxdata/tail v1.0.0
 	github.com/lib/pq v1.8.0

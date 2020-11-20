@@ -176,7 +176,9 @@ sysctl -w user.max_inotify_instances=2048
 ### Building Logtrain
 
 ```shell
-go build -o logtrain cmd/logtrain/main.go
+go build -o logtrain github.com/akkeris/logtrain/cmd/logtrain
+
+go build -o logtail github.com/akkeris/logtrain/cmd/logtail
 ```
 
 ### Testing
