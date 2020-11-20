@@ -40,7 +40,7 @@ func (dataSource MemoryDataSource) EmitRemoveRoute(route LogRoute) error {
 	return nil
 }
 
-// Writeable indicates if emitting new add/remove routes can be called safely, some datasources
+// Writable indicates if emitting new add/remove routes can be called safely, some datasources
 // are read only and cannot be written to.
 func (dataSource MemoryDataSource) Writable() bool {
 	return true

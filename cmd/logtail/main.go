@@ -27,7 +27,7 @@ import (
 )
 
 var options struct {
-	CpuProfile string
+	CPUProfile string
 	MemProfile string
 	KubeConfig string
 }
@@ -46,7 +46,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 		select {
 		case <-term:
 			log.Printf("Exiting\n")
-			if options.CpuProfile != "" {
+			if options.CPUProfile != "" {
 				rpprof.StopCPUProfile()
 			}
 
@@ -66,7 +66,7 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 }
 
 func init() {
-	flag.StringVar(&options.CpuProfile, "cpuprofile", "", "write cpu profile to file")
+	flag.StringVar(&options.CPUProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.StringVar(&options.MemProfile, "memprofile", "", "write mem profile to file")
 	flag.StringVar(&options.KubeConfig, "kube-config", "", "specify the kube config path to be used")
 	flag.Parse()
@@ -119,13 +119,13 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 	// Check to see if syslog over tls will be used.
 	if os.Getenv("SYSLOG_TLS") == "true" {
 		if os.Getenv("SYSLOG_TLS_CERT_PEM") == "" {
-			return errors.New("The syslog tls environment variable SYSLOG_TLS_CERT_PEM was not found.")
+			return errors.New("the syslog tls environment variable SYSLOG_TLS_CERT_PEM was not found")
 		}
 		if os.Getenv("SYSLOG_TLS_KEY_PEM") == "" {
-			return errors.New("The syslog tls environment variable SYSLOG_TLS_KEY_PEM was not found.")
+			return errors.New("the syslog tls environment variable SYSLOG_TLS_KEY_PEM was not found")
 		}
 		if os.Getenv("SYSLOG_TLS_SERVER_NAME") == "" {
-			return errors.New("The syslog tls environment variable SYSLOG_TLS_SERVER_NAME was not found.")
+			return errors.New("the syslog tls environment variable SYSLOG_TLS_SERVER_NAME was not found")
 		}
 		handle, err := syslogtls.Create(os.Getenv("SYSLOG_TLS_SERVER_NAME"), os.Getenv("SYSLOG_TLS_KEY_PEM"), os.Getenv("SYSLOG_TLS_CERT_PEM"), os.Getenv("SYSLOG_TLS_CA_PEM"), "0.0.0.0:"+getOsOrDefault("SYSLOG_TLS_PORT", "9004"))
 		if err != nil {
@@ -142,7 +142,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 	}
 
 	if !addedInput {
-		return errors.New("No data inputs were found.")
+		return errors.New("no data inputs were found")
 	}
 	return nil
 }
@@ -158,7 +158,7 @@ func createRouter(ds []storage.DataSource) (*router.Router, error) {
 	return r, nil
 }
 
-func createHttpServer(port string) *httpServer {
+func createHTTPServer(port string) *httpServer {
 	mux := http.NewServeMux()
 	service := &httpServer{
 		mux: mux,
@@ -176,6 +176,9 @@ func createHttpServer(port string) *httpServer {
 }
 
 func getTailsEndpoint() string {
+	if os.Getenv("NAME") == "" || os.Getenv("NAMESPACE") == "" {
+		return ""
+	}
 	if os.Getenv("SYSLOG_TLS") == "true" {
 		return "syslog+tls://" + os.Getenv("NAME") + "." + os.Getenv("NAMESPACE") + ":" + getOsOrDefault("SYSLOG_TCP_PORT", "9004")
 	} else if os.Getenv("SYSLOG_TCP") == "true" {
@@ -186,15 +189,15 @@ func getTailsEndpoint() string {
 }
 
 func runWithContext(ctx context.Context) error {
-	if options.CpuProfile != "" {
-		f, err := os.Create(options.CpuProfile)
+	if options.CPUProfile != "" {
+		f, err := os.Create(options.CPUProfile)
 		if err != nil {
 			log.Fatal("Cannot create profile: " + err.Error())
 		}
 		rpprof.StartCPUProfile(f)
 		defer rpprof.StopCPUProfile()
 	}
-	httpServer := createHttpServer(getOsOrDefault("HTTP_PORT", "9000"))
+	httpServer := createHTTPServer(getOsOrDefault("HTTP_PORT", "9000"))
 	if os.Getenv("PROFILE") == "true" {
 		httpServer.mux.HandleFunc("/debug/pprof/", http.HandlerFunc(pprof.Index))
 		httpServer.mux.HandleFunc("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
@@ -224,7 +227,7 @@ func runWithContext(ctx context.Context) error {
 		}
 	}
 	if len(dssw) == 0 {
-		return errors.New("No data sources were defined, either kubernetes or postgresql are required.")
+		return errors.New("no data sources were defined, either kubernetes or postgresql are required")
 	}
 
 	// create a dummy data source
@@ -321,6 +324,9 @@ func run() error {
 
 func main() {
 	log.Printf("[main] Starting\n")
+	if getTailsEndpoint() == "" {
+		log.Fatalf("[main] required value NAME and NAMESPACE was not set.")
+	}
 	if err := run(); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 		debug.Fatalf("%s\n", err.Error())
 	}

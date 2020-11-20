@@ -141,7 +141,7 @@ func (pds *PostgresDataSource) EmitRemoveRoute(route LogRoute) error {
 }
 
 // Writable returns false always as this datasource is not writable.
-func (kds *PostgresDataSource) Writable() bool {
+func (pds *PostgresDataSource) Writable() bool {
 	return true
 }
 
@@ -256,12 +256,12 @@ func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*Postgr
 	return &pds, nil
 }
 
-func CreatePostgresDataSourceWithUrl(databaseUrl string) (*PostgresDataSource, error) {
-	db, err := sql.Open("postgres", databaseUrl)
+func CreatePostgresDataSourceWithURL(databaseURL string) (*PostgresDataSource, error) {
+	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	listener := pq.NewListener(databaseUrl, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+	listener := pq.NewListener(databaseURL, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
 		if err != nil {
 			debug.Fatalf("[postgres] Error in listener to postgres: %s\n", err.Error())
 		}

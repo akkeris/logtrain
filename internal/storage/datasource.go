@@ -29,7 +29,7 @@ type LogRoute struct {
 }
 
 // FindDataSources finds what datasources may be availabl and returns instantiated objects
-func FindDataSources(useKubernetes bool, kubeConfig string, usePostgres bool, databaseUrl string) ([]DataSource, error) {
+func FindDataSources(useKubernetes bool, kubeConfig string, usePostgres bool, databaseURL string) ([]DataSource, error) {
 	ds := make([]DataSource, 0)
 
 	if useKubernetes {
@@ -46,10 +46,10 @@ func FindDataSources(useKubernetes bool, kubeConfig string, usePostgres bool, da
 	}
 
 	if usePostgres {
-		if databaseUrl == "" {
-			return nil, errors.New("The database url was blank or empty.")
+		if databaseURL == "" {
+			return nil, errors.New("the database url was blank or empty")
 		}
-		pds, err := CreatePostgresDataSourceWithUrl(databaseUrl)
+		pds, err := CreatePostgresDataSourceWithURL(databaseURL)
 		if err != nil {
 			return nil, err
 		}

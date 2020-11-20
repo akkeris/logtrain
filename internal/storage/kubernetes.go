@@ -63,10 +63,9 @@ func kubeObjectFromHost(hostName string, useAkkerisHosts bool) (string, string) 
 	if useAkkerisHosts {
 		parts := strings.Split(hostName, "-")
 		return parts[0], strings.Join(parts[1:], "-")
-	} else {
-		parts := strings.Split(hostName, ".")
-		return parts[0], parts[1]
 	}
+	parts := strings.Split(hostName, ".")
+	return parts[0], parts[1]
 }
 
 // GetHostNameFromTLO derives a hostname from an object in kubernetes
