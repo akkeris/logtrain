@@ -57,6 +57,7 @@ func (dataSource MemoryDataSource) Close() error {
 	return nil
 }
 
+// CreateMemoryDataSource creates a memory data source for testing or logtail.
 func CreateMemoryDataSource() *MemoryDataSource {
 	return &MemoryDataSource{
 		closed: false,

@@ -255,7 +255,7 @@ func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*Postgr
 
 	return &pds, nil
 }
-
+// CreatePostgresDataSourceWithURL creates a postgres datasource from a database url.
 func CreatePostgresDataSourceWithURL(databaseURL string) (*PostgresDataSource, error) {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
