@@ -38,7 +38,7 @@ func FindDataSources(useKubernetes bool, kubeConfig string, usePostgres bool, da
 			debug.Errorf("Could not get kubernetes client [%s]: %s\n", kubeConfig, err.Error())
 			return nil, err
 		}
-		kds, err := CreateKubernetesDataSource(k8sClient)
+		kds, err := CreateKubernetesDataSource(k8sClient, true)
 		if err != nil {
 			return nil, err
 		}

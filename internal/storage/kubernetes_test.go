@@ -18,7 +18,7 @@ func TestKubernetesDataSource(t *testing.T) {
 	 * to mimick these callbacks as the fake client does not fully
 	 * support all of the watcher functionality.
 	 */
-	ds, err := CreateKubernetesDataSource(kube)
+	ds, err := CreateKubernetesDataSource(kube, false)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

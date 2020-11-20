@@ -356,7 +356,7 @@ func hasAccessTo(kube kubernetes.Interface, verb, group, resource string) bool {
 }
 
 // CreateKubernetesDataSource creates a new kubernetes data source from a kube client
-func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSource, error) {
+func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool) (*KubernetesDataSource, error) {
 	useAkkeris := false
 	if os.Getenv("AKKERIS") == "true" {
 		useAkkeris = true
@@ -373,12 +373,13 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		writable:        false,
 	}
 
-	if !hasAccessTo(kube, "get", "apps", "deployments") ||
+	if checkPermissions && (
+		!hasAccessTo(kube, "get", "apps", "deployments") ||
 		!hasAccessTo(kube, "get", "apps", "statefulsets") ||
 		!hasAccessTo(kube, "get", "apps", "daemonset") ||
 		!hasAccessTo(kube, "list", "apps", "deployments") ||
 		!hasAccessTo(kube, "list", "apps", "statefulsets") ||
-		!hasAccessTo(kube, "list", "apps", "daemonset") {
+		!hasAccessTo(kube, "list", "apps", "daemonset")) {
 		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get/list for depoyments, statefulsets, and deamonsets")
 	}
 
