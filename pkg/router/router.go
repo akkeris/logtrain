@@ -78,6 +78,7 @@ func (router *Router) Dial() error {
 	}
 	router.running = true
 	// Begin listening to datasources
+	router.refreshRoutes()
 	for _, source := range router.datasources {
 		go func(db storage.DataSource) {
 			for {

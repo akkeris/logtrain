@@ -86,6 +86,8 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Oh hello")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		input.Packets() <- syslog.Packet{
 			Severity: 0,
@@ -98,6 +100,8 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow Meow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		ds.EmitRemoveRoute(route)
 		input.Packets() <- syslog.Packet{
@@ -127,10 +131,14 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 
 		So(router.RemoveInput("someid"), ShouldBeNil)
