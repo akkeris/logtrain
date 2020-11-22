@@ -36,8 +36,8 @@ func (dataSource MemoryDataSource) EmitNewRoute(route LogRoute) error {
 
 // EmitRemoveRoute removes a route from the datasource and emits it to the remote route channel
 func (dataSource MemoryDataSource) EmitRemoveRoute(route LogRoute) error {
-	newRoutes = make([]LogRoute, 0)
-	for _, r := range dataSources.routes {
+	newRoutes := make([]LogRoute, 0)
+	for _, r := range dataSource.routes {
 		if r.Endpoint != route.Endpoint || r.Hostname != r.Hostname {
 			newRoutes = append(newRoutes, r)
 		}
