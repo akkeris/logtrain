@@ -9,33 +9,6 @@ import (
 	"time"
 )
 
-type FakeDataSource struct {
-	add    chan storage.LogRoute
-	remove chan storage.LogRoute
-	routes []storage.LogRoute
-}
-
-func (dataSource FakeDataSource) AddRoute() chan storage.LogRoute {
-	return dataSource.add
-}
-
-func (dataSource FakeDataSource) RemoveRoute() chan storage.LogRoute {
-	return dataSource.remove
-}
-
-func (dataSource FakeDataSource) GetAllRoutes() ([]storage.LogRoute, error) {
-	return dataSource.routes, nil
-}
-
-func (dataSource FakeDataSource) EmitNewRoute(route storage.LogRoute) {
-	dataSource.routes = append(dataSource.routes, route)
-	dataSource.add <- route
-}
-
-func (dataSource FakeDataSource) EmitRemoveRoute(route storage.LogRoute) {
-	dataSource.remove <- route
-}
-
 type FakeInput struct {
 	errors  chan error
 	packets chan syslog.Packet
@@ -74,11 +47,10 @@ func TestRouter(t *testing.T) {
 		Hostname: "test-host",
 		Tag:      "test-tag",
 	}
-	ds := FakeDataSource{
-		add:    make(chan storage.LogRoute, 1),
-		remove: make(chan storage.LogRoute, 1),
-		routes: []storage.LogRoute{route},
-	}
+	ds := storage.CreateMemoryDataSource()
+	ds.EmitNewRoute(route)
+	rs, err := ds.GetAllRoutes()
+	log.Printf("DS now has %#+v\n", rs)
 	input := FakeInput{
 		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 1),
@@ -116,6 +88,8 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Oh hello")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		input.Packets() <- syslog.Packet{
 			Severity: 0,
@@ -128,6 +102,8 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow Meow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		ds.EmitRemoveRoute(route)
 		input.Packets() <- syslog.Packet{
@@ -157,10 +133,14 @@ func TestRouter(t *testing.T) {
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 		select {
 		case message := <-server.Received:
 			So(message.Message, ShouldContainSubstring, "Pow Pow")
+		case <-time.NewTimer(time.Second * 2).C:
+			So(false, ShouldEqual, true)
 		}
 
 		So(router.RemoveInput("someid"), ShouldBeNil)

@@ -1,14 +1,18 @@
 package storage
 
 import (
+	"errors"
 	"github.com/akkeris/logtrain/internal/debug"
 	apps "k8s.io/api/apps/v1"
+	authorization "k8s.io/api/authorization/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"strings"
 	"time"
@@ -28,6 +32,40 @@ type KubernetesDataSource struct {
 	add             chan LogRoute
 	remove          chan LogRoute
 	routes          []LogRoute
+	closed          bool
+	writable        bool
+}
+
+// GetKubernetesClient returns a new kubernetes client by testing the in cluster config or checking the file path
+func GetKubernetesClient(kubeConfigPath string) (kubernetes.Interface, error) {
+	var clientConfig *rest.Config
+	var err error
+	if kubeConfigPath == "" {
+		clientConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		config, err := clientcmd.LoadFromFile(kubeConfigPath)
+		if err != nil {
+			return nil, err
+		}
+
+		clientConfig, err = clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return kubernetes.NewForConfig(clientConfig)
+}
+
+func kubeObjectFromHost(hostName string, useAkkerisHosts bool) (string, string) {
+	if useAkkerisHosts {
+		parts := strings.Split(hostName, "-")
+		return parts[0], strings.Join(parts[1:], "-")
+	}
+	parts := strings.Split(hostName, ".")
+	return parts[0], parts[1]
 }
 
 // GetHostNameFromTLO derives a hostname from an object in kubernetes
@@ -56,9 +94,137 @@ func (kds *KubernetesDataSource) GetAllRoutes() ([]LogRoute, error) {
 	return kds.routes, nil
 }
 
+// EmitNewRoute always returns an error as this datasource is not currently writable.
+func (kds *KubernetesDataSource) EmitNewRoute(route LogRoute) error {
+	if kds.writable == false {
+		return errors.New("cannot write to this datasource")
+	}
+	name, namespace := kubeObjectFromHost(route.Hostname, kds.useAkkerisHosts)
+
+	deployment, err := kds.kube.AppsV1().Deployments(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := deployment.GetAnnotations()
+		if annotations[DrainAnnotationKey] == "" {
+			annotations[DrainAnnotationKey] = route.Endpoint
+		} else {
+			annotations[DrainAnnotationKey] = annotations[DrainAnnotationKey] + ";" + route.Endpoint
+		}
+		deployment.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().Deployments(namespace).Update(deployment); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	daemonset, err := kds.kube.AppsV1().DaemonSets(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := daemonset.GetAnnotations()
+		if annotations[DrainAnnotationKey] == "" {
+			annotations[DrainAnnotationKey] = route.Endpoint
+		} else {
+			annotations[DrainAnnotationKey] = annotations[DrainAnnotationKey] + ";" + route.Endpoint
+		}
+		daemonset.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().DaemonSets(namespace).Update(daemonset); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	statefulset, err := kds.kube.AppsV1().StatefulSets(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := statefulset.GetAnnotations()
+		if annotations[DrainAnnotationKey] == "" {
+			annotations[DrainAnnotationKey] = route.Endpoint
+		} else {
+			annotations[DrainAnnotationKey] = annotations[DrainAnnotationKey] + ";" + route.Endpoint
+		}
+		statefulset.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().StatefulSets(namespace).Update(statefulset); err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
+}
+
+// EmitRemoveRoute always returns an error as this datasource is not currently writable.
+func (kds *KubernetesDataSource) EmitRemoveRoute(route LogRoute) error {
+	if kds.writable == false {
+		return errors.New("cannot write to this datasource")
+	}
+	name, namespace := kubeObjectFromHost(route.Hostname, kds.useAkkerisHosts)
+
+	deployment, err := kds.kube.AppsV1().Deployments(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := deployment.GetAnnotations()
+		drains := strings.Split(annotations[DrainAnnotationKey], ";")
+		newdrs := make([]string, 0)
+		for _, drain := range drains {
+			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
+				newdrs = newdrs
+			}
+		}
+		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
+		deployment.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().Deployments(namespace).Update(deployment); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	daemonset, err := kds.kube.AppsV1().DaemonSets(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := daemonset.GetAnnotations()
+		drains := strings.Split(annotations[DrainAnnotationKey], ";")
+		newdrs := make([]string, 0)
+		for _, drain := range drains {
+			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
+				newdrs = newdrs
+			}
+		}
+		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
+		daemonset.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().DaemonSets(namespace).Update(daemonset); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	statefulset, err := kds.kube.AppsV1().StatefulSets(namespace).Get(name, meta.GetOptions{})
+	if err == nil {
+		annotations := statefulset.GetAnnotations()
+		drains := strings.Split(annotations[DrainAnnotationKey], ";")
+		newdrs := make([]string, 0)
+		for _, drain := range drains {
+			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
+				newdrs = newdrs
+			}
+		}
+		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
+		statefulset.SetAnnotations(annotations)
+		if _, err = kds.kube.AppsV1().StatefulSets(namespace).Update(statefulset); err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
+}
+
+// Writable returns false always as this datasource is not writable.
+func (kds *KubernetesDataSource) Writable() bool {
+	return kds.writable
+}
+
 // Close closes the data sources
 func (kds *KubernetesDataSource) Close() error {
+	if kds.closed {
+		return errors.New("this datasource is already closed")
+	}
+	kds.closed = true
 	kds.stop <- struct{}{}
+	close(kds.add)
+	close(kds.remove)
 	return nil
 }
 
@@ -167,8 +333,29 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 	}
 }
 
+func hasAccessTo(kube kubernetes.Interface, verb, group, resource string) bool {
+	policy := authorization.SelfSubjectAccessReview{
+		Spec: authorization.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorization.ResourceAttributes{
+				Namespace: "*",
+				Verb:      verb,
+				Group:     group,
+				Version:   "*",
+				Resource:  resource,
+				Name:      "",
+			},
+		},
+	}
+	result, err := kube.AuthorizationV1().SelfSubjectAccessReviews().Create(&policy)
+	if err != nil {
+		debug.Errorf("[kubernetes/datasource]: unable to do a policy review of %s %s %s: %s", verb, group, resource, err.Error())
+		return false
+	}
+	return result.Status.Allowed
+}
+
 // CreateKubernetesDataSource creates a new kubernetes data source from a kube client
-func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSource, error) {
+func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool) (*KubernetesDataSource, error) {
 	useAkkeris := false
 	if os.Getenv("AKKERIS") == "true" {
 		useAkkeris = true
@@ -181,9 +368,25 @@ func CreateKubernetesDataSource(kube kubernetes.Interface) (*KubernetesDataSourc
 		add:             make(chan LogRoute, 10),
 		remove:          make(chan LogRoute, 10),
 		routes:          make([]LogRoute, 0),
+		closed:          false,
+		writable:        false,
 	}
 
-	// TODO: Check permissions of service account before we run...
+	if checkPermissions && (
+		!hasAccessTo(kube, "get", "apps", "deployments") ||
+		!hasAccessTo(kube, "get", "apps", "statefulsets") ||
+		!hasAccessTo(kube, "get", "apps", "daemonset") ||
+		!hasAccessTo(kube, "list", "apps", "deployments") ||
+		!hasAccessTo(kube, "list", "apps", "statefulsets") ||
+		!hasAccessTo(kube, "list", "apps", "daemonset")) {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get/list for depoyments, statefulsets, and deamonsets")
+	}
+
+	if hasAccessTo(kube, "update", "apps", "deployments") &&
+		hasAccessTo(kube, "update", "apps", "statefulsets") &&
+		hasAccessTo(kube, "update", "apps", "daemonset") {
+		kds.writable = true
+	}
 
 	// Do not watch replicasets. They're rarely directly used and are an order of magnitude
 	// more resources to keep track of than deployments+statefulsets+daemonsets. Profiles caused

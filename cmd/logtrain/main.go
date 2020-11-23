@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"github.com/akkeris/logtrain/internal/debug"
@@ -15,12 +14,8 @@ import (
 	"github.com/akkeris/logtrain/pkg/input/syslogtls"
 	"github.com/akkeris/logtrain/pkg/input/syslogudp"
 	"github.com/akkeris/logtrain/pkg/router"
-	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -85,28 +80,6 @@ type httpServer struct {
 	server *http.Server
 }
 
-func getKubernetesClient(kubeConfigPath string) (kubernetes.Interface, error) {
-	var clientConfig *rest.Config
-	var err error
-	if kubeConfigPath == "" {
-		clientConfig, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		config, err := clientcmd.LoadFromFile(kubeConfigPath)
-		if err != nil {
-			return nil, err
-		}
-
-		clientConfig, err = clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{}).ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return kubernetes.NewForConfig(clientConfig)
-}
-
 func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 	term := make(chan os.Signal)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
@@ -144,45 +117,6 @@ func init() {
 	prometheus.MustRegister(syslogConnections)
 	prometheus.MustRegister(syslogDeadPackets)
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
-}
-
-func findDataSources() ([]storage.DataSource, error) {
-	ds := make([]storage.DataSource, 0)
-
-	if os.Getenv("KUBERNETES_DATASOURCE") == "true" {
-		k8sClient, err := getKubernetesClient(options.KubeConfig)
-		if err != nil {
-			debug.Errorf("Could not get kubernetes client [%s]: %s\n", options.KubeConfig, err.Error())
-			return nil, err
-		}
-		kds, err := storage.CreateKubernetesDataSource(k8sClient)
-		if err != nil {
-			return nil, err
-		}
-		ds = append(ds, kds)
-	}
-
-	if os.Getenv("POSTGRES") == "true" {
-		if os.Getenv("DATABASE_URL") == "" {
-			return nil, errors.New("The database url was blank or empty.")
-		}
-		db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
-		if err != nil {
-			return nil, err
-		}
-		listener := pq.NewListener(os.Getenv("DATABASE_URL"), 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
-			if err != nil {
-				debug.Fatalf("[main] Error in listener to postgres: %s\n", err.Error())
-			}
-		})
-		pds, err := storage.CreatePostgresDataSource(db, listener, true)
-		if err != nil {
-			return nil, err
-		}
-		ds = append(ds, pds)
-	}
-
-	return ds, nil
 }
 
 func createRouter(ds []storage.DataSource) (*router.Router, error) {
@@ -321,7 +255,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 
 	// Check to see if we should add kubernetes as an input
 	if os.Getenv("KUBERNETES") == "true" {
-		k8sClient, err := getKubernetesClient(options.KubeConfig)
+		k8sClient, err := storage.GetKubernetesClient(options.KubeConfig)
 		if err != nil {
 			return err
 		}
@@ -406,7 +340,7 @@ func runWithContext(ctx context.Context) error {
 
 	go httpServer.server.ListenAndServe()
 
-	ds, err := findDataSources()
+	ds, err := storage.FindDataSources(os.Getenv("KUBERNETES_DATASOURCE") == "true", options.KubeConfig, os.Getenv("POSTGRES") == "true", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		return err
 	}

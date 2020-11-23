@@ -4,6 +4,7 @@ import (
 	"errors"
 	elasticsearch "github.com/akkeris/logtrain/pkg/output/elasticsearch"
 	http "github.com/akkeris/logtrain/pkg/output/http"
+	memory "github.com/akkeris/logtrain/pkg/output/memory"
 	sysloghttp "github.com/akkeris/logtrain/pkg/output/sysloghttp"
 	syslogtcp "github.com/akkeris/logtrain/pkg/output/syslogtcp"
 	syslogtls "github.com/akkeris/logtrain/pkg/output/syslogtls"
@@ -24,6 +25,7 @@ func TestEndpoint(endpoint string) error {
 		syslogtcp.Test(endpoint) == false &&
 		syslogudp.Test(endpoint) == false &&
 		sysloghttp.Test(endpoint) == false &&
+		memory.Test(endpoint) == false &&
 		http.Test(endpoint) == false {
 		return errors.New("Unrecognized schema type")
 	}
@@ -43,6 +45,8 @@ func Create(endpoint string, errorsCh chan<- error) (Output, error) {
 		return syslogtls.Create(endpoint, errorsCh)
 	} else if syslogudp.Test(endpoint) == true {
 		return syslogudp.Create(endpoint, errorsCh)
+	} else if memory.Test(endpoint) == true {
+		return memory.Create(endpoint, errorsCh)
 	}
 	return nil, errors.New("Unrecognized endpoint " + endpoint)
 }

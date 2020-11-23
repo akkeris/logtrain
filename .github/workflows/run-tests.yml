@@ -11,7 +11,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
       - name: Run tests
-        run: go test -v ./... -coverprofile cover.out
+        run: DEBUG=true go test -v ./... -coverprofile cover.out
       - name: Report Coverage
         run: |
           go get github.com/schrej/godacov

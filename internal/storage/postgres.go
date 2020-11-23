@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/lib/pq"
 	"time"
@@ -101,6 +102,8 @@ type PostgresDataSource struct {
 	add      chan LogRoute
 	remove   chan LogRoute
 	routes   []LogRoute
+	db       *sql.DB
+	closed   bool
 }
 
 func (pds *PostgresDataSource) AddRoute() chan LogRoute {
@@ -113,6 +116,45 @@ func (pds *PostgresDataSource) RemoveRoute() chan LogRoute {
 
 func (pds *PostgresDataSource) GetAllRoutes() ([]LogRoute, error) {
 	return pds.routes, nil
+}
+
+// EmitNewRoute always returns an error as this datasource is not currently writable.
+func (pds *PostgresDataSource) EmitNewRoute(route LogRoute) error {
+	if pds.closed {
+		return errors.New("datasource is closed")
+	}
+	if _, err := pds.db.Exec("insert into drains (hostname, endpoint, tag) values ($1, $2, $3)", route.Hostname, route.Endpoint, route.Tag); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EmitRemoveRoute always returns an error as this datasource is not currently writable.
+func (pds *PostgresDataSource) EmitRemoveRoute(route LogRoute) error {
+	if pds.closed {
+		return errors.New("datasource is closed")
+	}
+	if _, err := pds.db.Exec("delete drains where hostname = $1 and endpoint = $2 and tag = $3", route.Hostname, route.Endpoint, route.Tag); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Writable returns false always as this datasource is not writable.
+func (pds *PostgresDataSource) Writable() bool {
+	return true
+}
+
+// Close closes the postgres datasource.
+func (pds *PostgresDataSource) Close() error {
+	if pds.closed {
+		return errors.New("this datasource is already closed")
+	}
+	pds.closed = true
+	close(pds.add)
+	close(pds.remove)
+	pds.db.Close()
+	return nil
 }
 
 func (pds *PostgresDataSource) processChange(n *pq.Notification) {
@@ -176,6 +218,8 @@ func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*Postgr
 		add:      make(chan LogRoute, 1),
 		remove:   make(chan LogRoute, 1),
 		routes:   make([]LogRoute, 0),
+		db:       db,
+		closed:   false,
 	}
 
 	if init {
@@ -210,4 +254,21 @@ func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*Postgr
 	go pds.listenForChanges()
 
 	return &pds, nil
+}
+// CreatePostgresDataSourceWithURL creates a postgres datasource from a database url.
+func CreatePostgresDataSourceWithURL(databaseURL string) (*PostgresDataSource, error) {
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	listener := pq.NewListener(databaseURL, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+		if err != nil {
+			debug.Fatalf("[postgres] Error in listener to postgres: %s\n", err.Error())
+		}
+	})
+	pds, err := CreatePostgresDataSource(db, listener, true)
+	if err != nil {
+		return nil, err
+	}
+	return pds, nil
 }
