@@ -78,7 +78,6 @@ func (router *Router) Dial() error {
 	}
 	router.running = true
 	// Begin listening to datasources
-	router.refreshRoutes()
 	for _, source := range router.datasources {
 		go func(db storage.DataSource) {
 			for {
@@ -241,6 +240,7 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 }
 
 func (router *Router) refreshRoutes() error {
+	debug.Debugf("[router] refreshRoutes called\n")
 	routes := make([]storage.LogRoute, 0)
 	for _, d := range router.datasources {
 		rs, err := d.GetAllRoutes()
@@ -265,6 +265,7 @@ func (router *Router) refreshRoutes() error {
 			router.removeRoute(route)
 		}
 	}
+	debug.Debugf("[router] refreshRoutes finished with %d routes\n", len(router.routes))
 	return nil
 }
 
