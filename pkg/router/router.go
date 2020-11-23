@@ -284,6 +284,7 @@ func (router *Router) writeLoop() {
 		}
 
 		remaining := len(inputs)
+		debug.Debugf("[router] entering route loop with %d inputs.\n", (len(inputs) - 2))
 		for remaining > 0 {
 			chosen, value, ok := reflect.Select(inputs)
 			if !ok {
