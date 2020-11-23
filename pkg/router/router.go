@@ -265,7 +265,7 @@ func (router *Router) refreshRoutes() error {
 			router.removeRoute(route)
 		}
 	}
-	debug.Debugf("[router] refreshRoutes finished with %d routes\n", len(router.routes))
+	debug.Debugf("[router] refreshRoutes finished with %d routes\n", len(router.endpointsByHost))
 	return nil
 }
 
