@@ -373,18 +373,21 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 	}
 
 	if checkPermissions && (
-		!hasAccessTo(kube, "get", "apps", "deployments") ||
-		!hasAccessTo(kube, "get", "apps", "statefulsets") ||
-		!hasAccessTo(kube, "get", "apps", "daemonset") ||
-		!hasAccessTo(kube, "list", "apps", "deployments") ||
-		!hasAccessTo(kube, "list", "apps", "statefulsets") ||
-		!hasAccessTo(kube, "list", "apps", "daemonset")) {
-		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get/list for depoyments, statefulsets, and deamonsets")
+		!hasAccessTo(kube, "get", "", "deployments") ||
+		!hasAccessTo(kube, "get", "", "statefulsets") ||
+		!hasAccessTo(kube, "get", "", "daemonset")) {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get depoyments, statefulsets, and deamonsets")
+	}
+	if checkPermissions && (
+		!hasAccessTo(kube, "list", "", "deployments") ||
+		!hasAccessTo(kube, "list", "", "statefulsets") ||
+		!hasAccessTo(kube, "list", "", "daemonset")) {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to list depoyments, statefulsets, and deamonsets")
 	}
 
-	if hasAccessTo(kube, "update", "apps", "deployments") &&
-		hasAccessTo(kube, "update", "apps", "statefulsets") &&
-		hasAccessTo(kube, "update", "apps", "daemonset") {
+	if hasAccessTo(kube, "update", "", "deployments") &&
+		hasAccessTo(kube, "update", "", "statefulsets") &&
+		hasAccessTo(kube, "update", "", "daemonset") {
 		kds.writable = true
 	}
 

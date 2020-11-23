@@ -20,9 +20,9 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: logtail
-        image: akkeris/logtrain:v0.0.64
+        image: akkeris/logtrain:v0.0.65
         command:
-          - logtail
+          - ./logtail
         env:
         - name: NAME
           valueFrom:
