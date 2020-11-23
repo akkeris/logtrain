@@ -236,11 +236,9 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	} else {
 		debug.Debugf("[router] Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
-	debug.Debugf("[router] Route successfully removed %s->%s\n", r.Hostname, r.Endpoint)
 }
 
 func (router *Router) refreshRoutes() error {
-	debug.Debugf("[router] refreshRoutes called\n")
 	routes := make([]storage.LogRoute, 0)
 	for _, d := range router.datasources {
 		rs, err := d.GetAllRoutes()
@@ -285,7 +283,6 @@ func (router *Router) writeLoop() {
 		}
 
 		remaining := len(inputs)
-		debug.Debugf("[router] entering route loop with %d inputs.\n", (len(inputs) - 2))
 		for remaining > 0 {
 			chosen, value, ok := reflect.Select(inputs)
 			if !ok {

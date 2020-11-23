@@ -49,6 +49,8 @@ func TestRouter(t *testing.T) {
 	}
 	ds := storage.CreateMemoryDataSource()
 	ds.EmitNewRoute(route)
+	rs, err := ds.GetAllRoutes()
+	log.Printf("DS now has %#+v\n", rs)
 	input := FakeInput{
 		errors:  make(chan error, 1),
 		packets: make(chan syslog.Packet, 1),
