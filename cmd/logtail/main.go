@@ -213,8 +213,6 @@ func runWithContext(ctx context.Context) error {
 		httpServer.mux.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
 	}
 
-	go httpServer.server.ListenAndServe()
-
 	dss, err := storage.FindDataSources(os.Getenv("KUBERNETES_DATASOURCE") == "true", options.KubeConfig, os.Getenv("POSTGRES") == "true", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		return err
@@ -260,17 +258,20 @@ func runWithContext(ctx context.Context) error {
 			return
 		}
 		host := pathSegments[2]
-
+		
 		uid := uuid.New()
 		c := make(chan syslog.Packet, 1)
 		memory.GlobalInternalOutputs[uid.String()] = c
 		timer := time.NewTimer(time.Minute * 30)
 
+		internalEndpoint := "memory://localhost/" + uid.String()
+		debug.Infof("Opening stream reading %s (%s)\n", host, internalEndpoint)
+
 		// place a route to send everything coming from our syslog listener to
 		// go to our channel we made above
 		ds.EmitNewRoute(storage.LogRoute{
 			Hostname: host,
-			Endpoint: "memory://localhost/" + uid.String(),
+			Endpoint: internalEndpoint,
 		})
 
 		// tell all other logtrains to forward traffic to us.
@@ -279,28 +280,38 @@ func runWithContext(ctx context.Context) error {
 			Endpoint: getTailsEndpoint(),
 		})
 
-		// To keep alive hte response writer we cannot return, returning out of
-		// this will cause the writer to be closed, this is executed as part of
-		// an existing go-routine from the http server.
+		w.Header().Set("Content-Type", "text/syslog+rfc5424; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusCreated)
+
+		flusher, canFlush := w.(http.Flusher)
+
 		for {
 			select {
 			case msg := <-c:
 				if _, err := w.Write([]byte(msg.Generate(maxLogSize) + "\n")); err != nil {
+					debug.Infof("Closing stream reading %s (%s) becuase: %s\n", host, internalEndpoint, err.Error())
 					ds.EmitRemoveRoute(storage.LogRoute{
 						Hostname: host,
-						Endpoint: "internal://localhost/" + uid.String(),
+						Endpoint: internalEndpoint,
 					})
 					dssw[0].EmitRemoveRoute(storage.LogRoute{
 						Hostname: host,
 						Endpoint: getTailsEndpoint(),
 					})
-					close(c)
+					// do not close the channel, its already closed
 					return
 				}
+				if canFlush {
+					flusher.Flush()
+				}
+
+			// Maximum time has expired for the log stream to be open, close it after this.
 			case <-timer.C:
+				debug.Infof("Closing stream reading %s (%s) becuase timer expired.\n", host, internalEndpoint)
 				ds.EmitRemoveRoute(storage.LogRoute{
 					Hostname: host,
-					Endpoint: "internal://localhost/" + uid.String(),
+					Endpoint: internalEndpoint,
 				})
 				dssw[0].EmitRemoveRoute(storage.LogRoute{
 					Hostname: host,
@@ -312,6 +323,7 @@ func runWithContext(ctx context.Context) error {
 		}
 	})
 
+	httpServer.server.ListenAndServe()
 	return nil
 }
 

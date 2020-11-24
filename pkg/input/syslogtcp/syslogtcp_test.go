@@ -44,7 +44,7 @@ func TestSyslogTcpInput(t *testing.T) {
 		logger.Write(p)
 		select {
 		case message := <-server.Packets():
-			So(p.Message+"\n", ShouldEqual, message.Message)
+			So(p.Message, ShouldEqual, message.Message)
 			So(p.Tag, ShouldEqual, message.Tag)
 			So(p.Hostname, ShouldEqual, message.Hostname)
 			So(p.Severity, ShouldEqual, message.Severity)

@@ -162,7 +162,7 @@ func (kds *KubernetesDataSource) EmitRemoveRoute(route LogRoute) error {
 		newdrs := make([]string, 0)
 		for _, drain := range drains {
 			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
-				newdrs = newdrs
+				newdrs = append(newdrs, drain)
 			}
 		}
 		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
@@ -180,7 +180,7 @@ func (kds *KubernetesDataSource) EmitRemoveRoute(route LogRoute) error {
 		newdrs := make([]string, 0)
 		for _, drain := range drains {
 			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
-				newdrs = newdrs
+				newdrs = append(newdrs, drain)
 			}
 		}
 		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
@@ -198,7 +198,7 @@ func (kds *KubernetesDataSource) EmitRemoveRoute(route LogRoute) error {
 		newdrs := make([]string, 0)
 		for _, drain := range drains {
 			if strings.TrimSpace(strings.ToLower(route.Endpoint)) != strings.TrimSpace(strings.ToLower(drain)) {
-				newdrs = newdrs
+				newdrs = append(newdrs, drain)
 			}
 		}
 		annotations[DrainAnnotationKey] = strings.Join(newdrs, ";")
@@ -337,7 +337,7 @@ func hasAccessTo(kube kubernetes.Interface, verb, group, resource string) bool {
 	policy := authorization.SelfSubjectAccessReview{
 		Spec: authorization.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorization.ResourceAttributes{
-				Namespace: "*",
+				Namespace: "",
 				Verb:      verb,
 				Group:     group,
 				Version:   "*",
@@ -372,23 +372,31 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 		writable:        false,
 	}
 
-	if checkPermissions && (
-		!hasAccessTo(kube, "get", "", "deployments") ||
-		!hasAccessTo(kube, "get", "", "statefulsets") ||
-		!hasAccessTo(kube, "get", "", "daemonset")) {
-		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get depoyments, statefulsets, and deamonsets")
+	if checkPermissions && !hasAccessTo(kube, "get", "apps", "deployments") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get depoyments")
 	}
-	if checkPermissions && (
-		!hasAccessTo(kube, "list", "", "deployments") ||
-		!hasAccessTo(kube, "list", "", "statefulsets") ||
-		!hasAccessTo(kube, "list", "", "daemonset")) {
-		return nil, errors.New("kubernetes cannot be used as data source, no permissions to list depoyments, statefulsets, and deamonsets")
+	if checkPermissions && !hasAccessTo(kube, "get", "apps", "statefulsets") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get statefulset")
+	}
+	if checkPermissions && !hasAccessTo(kube, "get", "apps", "daemonsets") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to get daemonset")
+	}
+	if checkPermissions && !hasAccessTo(kube, "list", "apps", "deployments") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to list depoyments")
+	}
+	if checkPermissions && !hasAccessTo(kube, "list", "apps", "statefulsets") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to list statefulset")
+	}
+	if checkPermissions && !hasAccessTo(kube, "list", "apps", "daemonsets") {
+		return nil, errors.New("kubernetes cannot be used as data source, no permissions to list daemonset")
 	}
 
-	if hasAccessTo(kube, "update", "", "deployments") &&
-		hasAccessTo(kube, "update", "", "statefulsets") &&
-		hasAccessTo(kube, "update", "", "daemonset") {
+	if hasAccessTo(kube, "update", "apps", "deployments") &&
+		hasAccessTo(kube, "update", "apps", "statefulsets") &&
+		hasAccessTo(kube, "update", "apps", "daemonsets") {
 		kds.writable = true
+	} else {
+		debug.Infof("[kubernetes/datasource] Write permissions are not available, the logtail may not run correctly.")
 	}
 
 	// Do not watch replicasets. They're rarely directly used and are an order of magnitude

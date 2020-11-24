@@ -36,7 +36,6 @@ type Router struct {
 	datasources           []storage.DataSource
 	deadPacket            int
 	drainByEndpoint       map[string]*Drain
-	drainsByHost          map[string][]*Drain // Used to find open connections to endpoints by hostname
 	drainsFailedToConnect map[string]bool
 	endpointsByHost       map[string][]string // Used to find defined endpoints by hostname (but may or may not be open)
 	inputs                map[string]input.Input
@@ -53,7 +52,6 @@ func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnection
 		datasources:           datasources,
 		deadPacket:            0,
 		drainByEndpoint:       make(map[string]*Drain),
-		drainsByHost:          make(map[string][]*Drain),
 		drainsFailedToConnect: make(map[string]bool),
 		endpointsByHost:       make(map[string][]string),
 		inputs:                make(map[string]input.Input, 0),
@@ -74,7 +72,7 @@ func NewRouter(datasources []storage.DataSource, stickyPools bool, maxConnection
 
 func (router *Router) Dial() error {
 	if router.running == true {
-		return errors.New("Dial cannot be called twice.")
+		return errors.New("dial cannot be called twice")
 	}
 	router.running = true
 	// Begin listening to datasources
@@ -103,14 +101,16 @@ func (router *Router) Metrics() map[string]Metric {
 	router.mutex.Lock()
 	defer router.mutex.Unlock()
 	metrics := make(map[string]Metric, 0)
-	for host, drains := range router.drainsByHost {
-		for _, drain := range drains {
-			metrics[host+"->"+drain.Endpoint] = Metric{
-				MaxConnections: drain.MaxConnections(),
-				Connections:    drain.OpenConnections(),
-				Pressure:       drain.Pressure(),
-				Sent:           drain.Sent(),
-				Errors:         drain.Errors(),
+	for host, endpoints := range router.endpointsByHost {
+		for _, endpoint := range endpoints {
+			if drain, ok := router.drainByEndpoint[endpoint]; ok {
+				metrics[host+"->"+drain.Endpoint] = Metric{
+					MaxConnections: drain.MaxConnections(),
+					Connections:    drain.OpenConnections(),
+					Pressure:       drain.Pressure(),
+					Sent:           drain.Sent(),
+					Errors:         drain.Errors(),
+				}
 			}
 		}
 	}
@@ -124,9 +124,11 @@ func (router *Router) DeadPackets() int {
 func (router *Router) ResetMetrics() {
 	router.mutex.Lock()
 	defer router.mutex.Unlock()
-	for _, drains := range router.drainsByHost {
-		for _, drain := range drains {
-			drain.ResetMetrics()
+	for _, endpoints := range router.endpointsByHost {
+		for _, endpoint := range endpoints {
+			if drain, ok := router.drainByEndpoint[endpoint]; ok {
+				drain.ResetMetrics()
+			}
 		}
 	}
 	router.deadPacket = 0
@@ -200,41 +202,18 @@ func (router *Router) removeRoute(r storage.LogRoute) {
 	} else {
 		debug.Debugf("[router] Remove route was called but route didn't exist in endpointsByHost %s->%s...\n", r.Hostname, r.Endpoint)
 	}
-
-	if drains, ok := router.drainsByHost[r.Hostname]; ok {
-		drs := make([]*Drain, 0)
-		for _, d := range drains {
-			if d.Endpoint != r.Endpoint {
-				drs = append(drs, d)
-			}
-		}
-		if len(drs) > 0 {
-			router.drainsByHost[r.Hostname] = drs
-		} else {
-			delete(router.drainsByHost, r.Hostname)
-		}
-	} else {
-		debug.Debugf("[router] Remove route was called but route didn't exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
-	}
-
-	var foundUsedEndpoint = false
-	for _, drs := range router.drainsByHost {
-		for _, d := range drs {
-			if d.Endpoint == r.Endpoint {
-				foundUsedEndpoint = true
+	var foundUnusedEndpoint = true
+	for _, endpoints := range router.endpointsByHost {
+		for _, endpoint := range endpoints {
+			if endpoint == r.Endpoint {
+				foundUnusedEndpoint = false
 			}
 		}
 	}
-	if foundUsedEndpoint == false {
-		if drain, ok := router.drainByEndpoint[r.Endpoint]; ok {
-			debug.Debugf("[router] While removing route, discovered drain with no endpoints using it, so we'll close the drain. %s->%s\n", r.Hostname, r.Endpoint)
-			drain.Close()
-			delete(router.drainByEndpoint, r.Endpoint)
-		} else {
-			debug.Debugf("[router] A drain requested to be removed was not present in drainByEndpoint but was in drainsByHost %s->%s\n", r.Hostname, r.Endpoint)
-		}
-	} else {
-		debug.Debugf("[router] Remove route was called but route didnt exist in drainsByHost %s->%s...\n", r.Hostname, r.Endpoint)
+	if drain, ok := router.drainByEndpoint[r.Endpoint]; ok && foundUnusedEndpoint {
+		debug.Debugf("[router] While removing route, discovered drain with no endpoints using it, so we'll close the drain. %s->%s\n", r.Hostname, r.Endpoint)
+		drain.Close()
+		delete(router.drainByEndpoint, r.Endpoint)
 	}
 }
 
@@ -292,25 +271,13 @@ func (router *Router) writeLoop() {
 				continue
 			}
 			if packet, ok := value.Interface().(syslog.Packet); ok {
-				if drains, ok := router.drainsByHost[packet.Hostname]; ok {
-					for _, drain := range drains {
-						select {
-						case drain.Input <- packet:
-						default:
-						}
-					}
-				} else if endpoints, ok := router.endpointsByHost[packet.Hostname]; ok {
-					router.mutex.Lock()
-					debug.Debugf("[router] No drain exists for endpoint host %s, looking for endpoints...\n", packet.Hostname)
-					drains = make([]*Drain, 0)
+				if endpoints, ok := router.endpointsByHost[packet.Hostname]; ok {
 					for _, endpoint := range endpoints {
-						debug.Debugf("[router] Looking to reuse or create drain for %s->%s\n", packet.Hostname, endpoint)
-						// Check if an existing route is already using this endpoint and get its
-						// drain, if not create a new drain for this.
 						if drain, ok := router.drainByEndpoint[endpoint]; ok {
-							debug.Debugf("[router] Existing drain for %s found, reusing it for host %s\n", endpoint, packet.Hostname)
-							router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
-							drains = append(drains, drain)
+							select {
+							case drain.Input <- packet:
+							default:
+							}
 						} else {
 							debug.Debugf("[router] Creating new drain to %s, using it for host %s\n", endpoint, packet.Hostname)
 							drain, err := Create(endpoint, router.maxConnections, router.stickyPools)
@@ -323,21 +290,15 @@ func (router *Router) writeLoop() {
 									router.drainsFailedToConnect[endpoint] = true
 								} else {
 									debug.Errorf("[router] Successfully created new drain to %s, for host %s\n", endpoint, packet.Hostname)
+									router.mutex.Lock()
 									router.drainByEndpoint[endpoint] = drain
-									router.drainsByHost[packet.Hostname] = append(router.drainsByHost[packet.Hostname], drain)
-									drains = append(drains, drain)
+									router.mutex.Unlock()
+									select {
+									case drain.Input <- packet:
+									default:
+									}
 								}
 							}
-						}
-					}
-					if len(drains) > 0 {
-						router.drainsByHost[packet.Hostname] = drains
-					}
-					router.mutex.Unlock()
-					for _, drain := range drains {
-						select {
-						case drain.Input <- packet:
-						default:
 						}
 					}
 				} else {

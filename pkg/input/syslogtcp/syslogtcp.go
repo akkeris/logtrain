@@ -35,7 +35,7 @@ func (handler *HandlerSyslogTCP) Dial() error {
 	}
 
 	handler.server = server.NewServer()
-	handler.server.SetFormat(server.RFC6587)
+	handler.server.SetFormat(server.RFC5424)
 	handler.server.SetHandler(server.NewChannelHandler(handler.channel))
 	if err := handler.server.ListenTCP(handler.address); err != nil {
 		return err
