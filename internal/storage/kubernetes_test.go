@@ -7,6 +7,7 @@ import (
 	"log"
 	"testing"
 	"time"
+	"os"
 )
 
 func TestKubernetesDataSource(t *testing.T) {
@@ -22,6 +23,44 @@ func TestKubernetesDataSource(t *testing.T) {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
+	Convey("test creating client", t, func() {
+		f, err := os.Create("/tmp/kubeconfigtest")
+		So(err, ShouldBeNil)
+		f.WriteString(`
+apiVersion: v1
+clusters:
+- cluster:
+    server: https://example.com/test/cluster
+  name: test
+contexts:
+- context:
+    cluster: test
+    user: test
+  name: test
+current-context: test
+kind: Config
+preferences: {}
+users:
+- name: test
+  user:
+    token: abcdefg
+`)
+		So(f.Close(), ShouldBeNil)
+		_, err = GetKubernetesClient("/tmp/kubeconfigtest")
+		So(err, ShouldBeNil)
+		_, err = GetKubernetesClient("")
+		So(err, ShouldNotBeNil)
+	})
+	Convey("Test kubeObjectFromHost", t, func() {
+		part1, part2 := kubeObjectFromHost("test-foo-fee", true)
+		So(part1, ShouldEqual, "test")
+		So(part2, ShouldEqual, "foo-fee")
+
+		part1, part2 = kubeObjectFromHost("test.foo-fee", false)
+		So(part1, ShouldEqual, "test")
+		So(part2, ShouldEqual, "foo-fee")
+	})
 	Convey("Test Get hostname from TLO", t, func() {
 		e := apps.Deployment{}
 		e.SetName("alamotest2112")

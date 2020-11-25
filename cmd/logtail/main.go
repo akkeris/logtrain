@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -260,8 +259,8 @@ func runWithContext(ctx context.Context) error {
 		host := pathSegments[2]
 		
 		uid := uuid.New()
-		c := make(chan syslog.Packet, 1)
-		memory.GlobalInternalOutputs[uid.String()] = c
+
+		channel := memory.NewMemoryChannel(uid.String())
 		timer := time.NewTimer(time.Minute * 30)
 
 		internalEndpoint := "memory://localhost/" + uid.String()
@@ -288,9 +287,9 @@ func runWithContext(ctx context.Context) error {
 
 		for {
 			select {
-			case msg := <-c:
+			case msg := <-channel:
 				if _, err := w.Write([]byte(msg.Generate(maxLogSize) + "\n")); err != nil {
-					debug.Infof("Closing stream reading %s (%s) becuase: %s\n", host, internalEndpoint, err.Error())
+					debug.Infof("Closing stream reading %s (%s) due to write error: %s\n", host, internalEndpoint, err.Error())
 					ds.EmitRemoveRoute(storage.LogRoute{
 						Hostname: host,
 						Endpoint: internalEndpoint,
@@ -299,12 +298,23 @@ func runWithContext(ctx context.Context) error {
 						Hostname: host,
 						Endpoint: getTailsEndpoint(),
 					})
-					// do not close the channel, its already closed
 					return
 				}
 				if canFlush {
 					flusher.Flush()
 				}
+
+			case <-req.Context().Done():
+				debug.Infof("Closing stream reading %s (%s) due to request closing\n", host, internalEndpoint)
+				ds.EmitRemoveRoute(storage.LogRoute{
+					Hostname: host,
+					Endpoint: internalEndpoint,
+				})
+				dssw[0].EmitRemoveRoute(storage.LogRoute{
+					Hostname: host,
+					Endpoint: getTailsEndpoint(),
+				})
+				return
 
 			// Maximum time has expired for the log stream to be open, close it after this.
 			case <-timer.C:
@@ -317,7 +327,6 @@ func runWithContext(ctx context.Context) error {
 					Hostname: host,
 					Endpoint: getTailsEndpoint(),
 				})
-				close(c)
 				return
 			}
 		}

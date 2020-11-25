@@ -23,6 +23,11 @@ type Syslog struct {
 
 var syslogSchemas = []string{"memory://"}
 
+func NewMemoryChannel(uid string) <- chan syslog.Packet {
+	GlobalInternalOutputs[uid] = make(chan syslog.Packet, 1)
+	return GlobalInternalOutputs[uid]
+}
+
 // Test the schema to see if its memory://
 func Test(endpoint string) bool {
 	for _, schema := range syslogSchemas {
@@ -64,6 +69,9 @@ func (log *Syslog) Dial() error {
 
 // Close closes the memory output
 func (log *Syslog) Close() error {
+	if log.closed {
+		return nil
+	}
 	log.closed = true
 	close(log.packets)
 	return nil
