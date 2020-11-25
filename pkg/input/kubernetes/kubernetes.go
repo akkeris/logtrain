@@ -306,8 +306,8 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 			// TODO: investigate if this is better served by using a range instead of select such as in:
 			// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
 			select {
-			case line := <-fw.follower.Lines:
-				if line.Err == nil {
+			case line, ok := <-fw.follower.Lines:
+				if ok && line.Err == nil {
 					var data kubeLine
 					if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
 						// track errors with the lines, but don't report anything.
@@ -329,13 +329,15 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 							Message:  data.Log,
 						}
 					}
-				} else {
+				} else if ok && line.Err != nil {
 					debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
 					// track errors with the lines, but don't report anything.
 					// TODO: should we do more? we shouldnt report this on
 					// the kubernetes error handler as one corrupted file could make
 					// the entire input handler look broken. Brainstorm on this.
 					fw.errors++
+				} else if !ok {
+					debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 				}
 			case <-fw.stop:
 				fw.follower.Stop()
