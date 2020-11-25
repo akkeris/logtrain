@@ -338,6 +338,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 					fw.errors++
 				} else if !ok {
 					debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+					return
 				}
 			case <-fw.stop:
 				fw.follower.Stop()
