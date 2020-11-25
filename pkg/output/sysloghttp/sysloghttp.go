@@ -60,7 +60,7 @@ func (log *Syslog) Dial() error {
 
 // Close the syslog output
 func (log *Syslog) Close() error {
-	log.stop <- struct{}{}
+	close(log.stop)
 	close(log.packets)
 	return nil
 }
@@ -80,7 +80,10 @@ func (log *Syslog) loop() {
 	var payload string
 	for {
 		select {
-		case p := <-log.packets:
+		case p, ok := <-log.packets:
+			if !ok {
+				return
+			}
 			payload = payload + p.Generate(maxLogSize) + "\n"
 		case <-timer.C:
 			if payload != "" {
@@ -96,7 +99,6 @@ func (log *Syslog) loop() {
 				}
 			}
 		case <-log.stop:
-			close(log.stop)
 			return
 		}
 	}

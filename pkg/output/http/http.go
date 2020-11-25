@@ -61,7 +61,7 @@ func (log *Syslog) Dial() error {
 // Close closes the http output
 func (log *Syslog) Close() error {
 	log.closed = true
-	log.stop <- struct{}{}
+	close(log.stop)
 	close(log.packets)
 	return nil
 }
@@ -79,7 +79,10 @@ func (log *Syslog) Packets() chan syslog.Packet {
 func (log *Syslog) loop() {
 	for {
 		select {
-		case p := <-log.packets:
+		case p, ok := <-log.packets:
+			if !ok {
+				return
+			}
 			payload, err := json.Marshal(p)
 			if err == nil {
 				resp, err := log.client.Post(log.url.String(), "application/json", strings.NewReader(string(payload)))
@@ -98,7 +101,6 @@ func (log *Syslog) loop() {
 				log.errors <- err
 			}
 		case <-log.stop:
-			close(log.stop)
 			return
 		}
 	}

@@ -80,10 +80,16 @@ func (router *Router) Dial() error {
 		go func(db storage.DataSource) {
 			for {
 				select {
-				case route := <-db.AddRoute():
+				case route, ok := <-db.AddRoute():
+					if !ok {
+						return
+					}
 					debug.Debugf("[router] Received add %s->%s\n", route.Hostname, route.Endpoint)
 					go router.addRoute(route)
-				case route := <-db.RemoveRoute():
+				case route, ok := <-db.RemoveRoute():
+					if !ok {
+						return
+					}
 					debug.Debugf("[router] Received remove %s->%s\n", route.Hostname, route.Endpoint)
 					go router.removeRoute(route)
 				case <-router.stop:

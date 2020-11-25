@@ -214,7 +214,10 @@ func (drain *Drain) loopRoundRobin() {
 	var maxPackets = cap(drain.Input)
 	for {
 		select {
-		case packet := <-drain.Input:
+		case packet, ok := <-drain.Input:
+			if !ok {
+				return
+			}
 			drain.mutex.Lock()
 			drain.sent++
 			drain.connections[drain.sent%drain.open].Packets() <- packet
@@ -240,7 +243,10 @@ func (drain *Drain) loopSticky() {
 	var maxPackets = cap(drain.Input)
 	for {
 		select {
-		case packet := <-drain.Input:
+		case packet, ok := <-drain.Input:
+			if !ok {
+				return
+			}
 			drain.mutex.Lock()
 			drain.sent++
 			drain.connections[uint32(crc32.ChecksumIEEE([]byte(packet.Hostname+packet.Tag))%drain.open)].Packets() <- packet
@@ -255,7 +261,10 @@ func (drain *Drain) loopSticky() {
 				go drain.disconnect(false)
 			}
 			drain.mutex.Unlock()
-		case err := <-drain.Error:
+		case err, ok := <-drain.Error:
+			if !ok {
+				return
+			}
 			if err != nil && drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
 			}
@@ -274,14 +283,20 @@ func (drain *Drain) loopTransportPools() {
 	var maxPackets = cap(drain.Input)
 	for {
 		select {
-		case packet := <-drain.Input:
+		case packet, ok := <-drain.Input:
+			if !ok {
+				return
+			}
 			drain.mutex.Lock()
 			drain.sent++
 			drain.connections[0].Packets() <- packet
 			drain.pressure = (drain.pressure + (float64(len(drain.Input)) / float64(maxPackets))) / float64(2)
 			drain.mutex.Unlock()
-		case err := <-drain.Error:
-			if err != nil && drain.errors < drainErrorThreshold {
+		case err, ok := <-drain.Error:
+			if !ok {
+				return
+			}
+			if drain.errors < drainErrorThreshold {
 				debug.Errorf("[drains] An error occured on endpoint %s: %s", drain.Endpoint, err.Error())
 			}
 			if float64(drain.errors) > (float64(drain.sent)*drainErrorPercentage) && drain.errors < drainErrorThreshold {

@@ -109,7 +109,10 @@ func (log *Syslog) loop() {
 	var payload string = ""
 	for {
 		select {
-		case p := <-log.packets:
+		case p, ok := <-log.packets:
+			if !ok {
+				return
+			}
 			var index = log.index
 			if index == "" {
 				index = p.Hostname
@@ -154,7 +157,6 @@ func (log *Syslog) loop() {
 				payload = ""
 			}
 		case <-log.stop:
-			close(log.stop)
 			return
 		}
 	}

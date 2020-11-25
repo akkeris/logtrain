@@ -19,7 +19,6 @@ type HandlerSyslogUDP struct {
 
 // Close input handler.
 func (handler *HandlerSyslogUDP) Close() error {
-	handler.stop <- struct{}{}
 	handler.server.Kill()
 	close(handler.packets)
 	close(handler.errors)
@@ -46,7 +45,10 @@ func (handler *HandlerSyslogUDP) Dial() error {
 	go func() {
 		for {
 			select {
-			case message := <-handler.channel:
+			case message, ok := <-handler.channel:
+				if !ok {
+					return
+				}
 				var severity int
 				var facility int
 				var hostname string

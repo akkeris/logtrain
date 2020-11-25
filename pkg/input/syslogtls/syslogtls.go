@@ -91,7 +91,10 @@ func (handler *HandlerSyslogTLS) Dial() error {
 	go func() {
 		for {
 			select {
-			case message := <-handler.channel:
+			case message, ok := <-handler.channel:
+				if !ok {
+					return
+				}
 				var severity int
 				var facility int
 				var hostname string

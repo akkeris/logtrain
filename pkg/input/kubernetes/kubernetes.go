@@ -365,7 +365,11 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 	go func() {
 		for {
 			select {
-			case event := <-watcher.Events:
+			case event, ok := <-watcher.Events:
+				if !ok {
+					debug.Errorf("[kubernetes/input] the watcher event channel was closed for %s\n", handler.path)
+					panic("watcher event channel was closed")
+				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					debug.Debugf("[kubernetes/input] Watcher loop saw a new create event: %s\n", event.Name)
 					go handler.add(event.Name, io.SeekStart)
@@ -392,8 +396,8 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 					}
 					return
 				}
-			case err := <-watcher.Errors:
-				if handler.closing || err == nil {
+			case err, ok := <-watcher.Errors:
+				if !ok || handler.closing {
 					return
 				}
 				debug.Debugf("[kubernetes/input] Watcher loop encountered an error: %s\n", err.Error())

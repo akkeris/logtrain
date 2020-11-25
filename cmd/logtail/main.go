@@ -287,7 +287,11 @@ func runWithContext(ctx context.Context) error {
 
 		for {
 			select {
-			case msg := <-channel:
+			case msg, ok := <-channel:
+				if !ok {
+					debug.Infof("Closing stream reading %s (%s) due to memory channel that was closed.\n", host, internalEndpoint)
+					return
+				}
 				if _, err := w.Write([]byte(msg.Generate(maxLogSize) + "\n")); err != nil {
 					debug.Infof("Closing stream reading %s (%s) due to write error: %s\n", host, internalEndpoint, err.Error())
 					ds.EmitRemoveRoute(storage.LogRoute{
