@@ -14,6 +14,7 @@ func TestMemoryOutput(t *testing.T) {
 	var syslog *Syslog
 	var err error
 	Convey("Ensure in memory output cannot be created for a bad id", t, func() {
+		So(NewMemoryChannel("foo"), ShouldNotBeNil)
 		syslog, err = Create("memory://localhost:8085/myid", errorCh)
 		So(err, ShouldNotBeNil)
 	})
