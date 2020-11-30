@@ -18,6 +18,7 @@ func TestMemoryOutput(t *testing.T) {
 		syslog, err = Create("memory://localhost:8085/myid", errorCh)
 		So(err, ShouldNotBeNil)
 	})
+
 	Convey("Ensure we can create a memory output", t, func() {
 		GlobalInternalOutputs["myid"] = commCh
 		syslog, err = Create("memory://localhost:8085/myid", errorCh)
