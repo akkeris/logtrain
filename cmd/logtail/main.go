@@ -256,6 +256,7 @@ func runWithContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	// Find only the writable resources
 	dssw := make([]storage.DataSource, 0)
 	for _, d := range dss {
@@ -266,19 +267,20 @@ func runWithContext(ctx context.Context) error {
 	if len(dssw) == 0 {
 		return errors.New("no data sources were defined, either kubernetes or postgresql are required")
 	}
-
+	debug.Infof("[logtail/main]: Found %d writable datasources\n", len(dssw))
 	// Clear any routes pointing to us as we've restarted we should not
 	// yet have any drains explictly pointing to us.
 	routes, err := dssw[0].GetAllRoutes()
 	if err != nil {
 		return err
 	}
-
+	debug.Infof("[logtail/main]: Found %d existing routes in first datasource.\n", len(routes))
 	tailsEndpoint := getTailsEndpoint()
 	for _, route := range routes {
 		if route.Endpoint == tailsEndpoint {
+			debug.Infof("[logtail/main]: Removing route %s->%s as its stale.\n", route.Hostname, route.Endpoint)
 			if err := dssw[0].EmitRemoveRoute(route); err != nil {
-				debug.Errorf("Failed to remove route %s->%s due to: %s\n", route.Hostname, route.Endpoint, err.Error())
+				debug.Errorf("[logtail/main]: Error, failed to remove route %s->%s due to: %s\n", route.Hostname, route.Endpoint, err.Error())
 			}
 		}
 	}
@@ -454,6 +456,7 @@ func runWithContext(ctx context.Context) error {
 		}
 	})
 
+	debug.Infof("[logtail/main]: Ready and listening...\n")
 	httpServer.server.ListenAndServe()
 	return nil
 }
