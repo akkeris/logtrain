@@ -356,6 +356,7 @@ func hasAccessTo(kube kubernetes.Interface, verb, group, resource string) bool {
 
 // CreateKubernetesDataSource creates a new kubernetes data source from a kube client
 func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool) (*KubernetesDataSource, error) {
+	debug.Infof("[kubernetes/datasource]: Creating new kubernetes storage\n")
 	useAkkeris := false
 	if os.Getenv("AKKERIS") == "true" {
 		useAkkeris = true
@@ -426,7 +427,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 		return nil, err
 	}
 	for _, item := range deployments.Items {
-		kds.addRouteFromObj(item)
+		kds.addRouteFromObj(item.DeepCopyObject())
 	}
 
 	// Watch daemonsets
@@ -452,7 +453,7 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 		return nil, err
 	}
 	for _, item := range daemonsets.Items {
-		kds.addRouteFromObj(item)
+		kds.addRouteFromObj(item.DeepCopyObject())
 	}
 
 	// Watch statefulsets
@@ -478,12 +479,13 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 		return nil, err
 	}
 	for _, item := range statefulsets.Items {
-		kds.addRouteFromObj(item)
+		kds.addRouteFromObj(item.DeepCopyObject())
 	}
 
 	go controllerDeployments.Run(kds.stop)
 	go controllerDaemonSets.Run(kds.stop)
 	go controllerStatefulSets.Run(kds.stop)
 
+	debug.Infof("[kubernetes/datasource]: Creating new kubernetes storage...done\n")
 	return &kds, nil
 }
