@@ -349,16 +349,17 @@ func runWithContext(ctx context.Context) error {
 			return
 		}
 		uid := pathSegments[2]
-		
+		debug.Infof("[logtail/main]: looking for uuid %s\n", uid)
 		activeTailsMutex.Lock()
 		tail, ok := activeTails[uid]
 		activeTailsMutex.Unlock()
 		if !ok {
+			debug.Infof("[logtail/main]: logtail for uuid %s was not found\n", uid)
 			http.NotFound(w, req)
 			return
 		}
 
-		if tail.created.Add(time.Minute * 5).After(time.Now()) {
+		if tail.created.Add(time.Minute * 5).Before(time.Now()) {
 			activeTailsMutex.Lock()
 			delete(activeTails, uid)
 			activeTailsMutex.Unlock()
