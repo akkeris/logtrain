@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/howbazaar/loggo v0.0.0-20160511211902-0e0537f18a29 // indirect
 	github.com/influxdata/tail v1.0.0
+	github.com/json-iterator/go v1.1.10
 	github.com/lib/pq v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/mcuadros/go-syslog v2.3.0+incompatible
@@ -24,6 +25,7 @@ require (
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/trevorlinton/go-tail v0.0.1
 	github.com/trevorlinton/remote_syslog2 v0.19.13
+	github.com/valyala/fastjson v1.6.3
 	golang.org/x/sys v0.0.0-20201110211018-35f3e6cf4a65 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.33.0

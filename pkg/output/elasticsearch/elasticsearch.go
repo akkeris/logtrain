@@ -15,6 +15,7 @@ import (
 
 // Syslog creates a new syslog output to elasticsearch
 type Syslog struct {
+	akkeris  bool
 	node     string
 	index    string
 	url      url.URL
@@ -65,7 +66,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if strings.HasPrefix(u.Path, "/_bulk") == false {
 		u.Path = u.Path + "/_bulk"
 	}
-	node := os.Getenv("NODE")
+	node := os.Getenv("NODE") // TODO: pass this into create
 	if node == "" {
 		node = "logtrain"
 	}
@@ -78,6 +79,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		packets:  make(chan syslog.Packet, 10),
 		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),
+		akkeris:  os.Getenv("AKKERIS") == "true", // TODO: pass this in to Create for all outputs.
 	}, nil
 }
 
@@ -107,6 +109,10 @@ func (log *Syslog) Packets() chan syslog.Packet {
 func (log *Syslog) loop() {
 	timer := time.NewTicker(time.Second)
 	var payload string = ""
+	var systemTags = ""
+	if log.akkeris {
+		systemTags = "\", \"akkeris\":\"true"
+	}
 	for {
 		select {
 		case p, ok := <-log.packets:
@@ -121,6 +127,7 @@ func (log *Syslog) loop() {
 				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
 				"\", \"hostname\":\"" + cleanString(p.Hostname) +
 				"\", \"tag\":\"" + cleanString(p.Tag) +
+				systemTags +
 				"\", \"message\":\"" + cleanString(p.Message) +
 				"\", \"severity\":" + strconv.Itoa(int(p.Severity)) +
 				", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"

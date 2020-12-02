@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"github.com/akkeris/logtrain/internal/debug"
@@ -19,8 +20,10 @@ import (
 	"net/http/pprof"
 	"os"
 	"os/signal"
+	"io/ioutil"
 	rpprof "runtime/pprof"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -31,12 +34,24 @@ var options struct {
 	KubeConfig string
 }
 
-var maxLogSize = 99990
-
 type httpServer struct {
 	mux    *http.ServeMux
 	server *http.Server
 }
+
+type tailsRequest struct {
+	Hostname string `hostname`
+}
+
+type activeTail struct {
+	created time.Time
+	uid string
+	host string
+}
+
+var maxLogSize = 99990
+var activeTails map[string]activeTail
+var activeTailsMutex *sync.Mutex
 
 func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 	term := make(chan os.Signal)
@@ -187,7 +202,32 @@ func getTailsEndpoint() string {
 	}
 }
 
+func runSweepTails() {
+	activeTailsMutex = &sync.Mutex{}
+	activeTailsMutex.Lock()
+	activeTails = make(map[string]activeTail, 0)
+	activeTailsMutex.Unlock()
+	timer := time.NewTimer(time.Second * 60)
+
+	for {
+		select {
+		case <- timer.C:
+			activeTailsMutex.Lock()
+			newActiveTails := make(map[string]activeTail, 0)
+			for key, val := range activeTails {
+				if val.created.Add(time.Minute * 5).Before(time.Now()) {
+					newActiveTails[key] = val
+				}
+			}
+			activeTails = newActiveTails
+			activeTailsMutex.Unlock()
+		}
+	}
+}
+
 func runWithContext(ctx context.Context) error {
+	go runSweepTails() // collect expired tails and remove them from the map.
+
 	if options.CPUProfile != "" {
 		f, err := os.Create(options.CPUProfile)
 		if err != nil {
@@ -227,6 +267,22 @@ func runWithContext(ctx context.Context) error {
 		return errors.New("no data sources were defined, either kubernetes or postgresql are required")
 	}
 
+	// Clear any routes pointing to us as we've restarted we should not
+	// yet have any drains explictly pointing to us.
+	routes, err := dssw[0].GetAllRoutes()
+	if err != nil {
+		return err
+	}
+
+	tailsEndpoint := getTailsEndpoint()
+	for _, route := range routes {
+		if route.Endpoint == tailsEndpoint {
+			if err := dssw[0].EmitRemoveRoute(route); err != nil {
+				debug.Errorf("Failed to remove route %s->%s due to: %s\n", route.Hostname, route.Endpoint, err.Error())
+			}
+		}
+	}
+
 	// create a dummy data source
 	ds := storage.CreateMemoryDataSource()
 
@@ -240,9 +296,45 @@ func runWithContext(ctx context.Context) error {
 	if err := addInputsToRouter(router, httpServer); err != nil {
 		return err
 	}
+	
+	httpServer.mux.HandleFunc("/tails", func(w http.ResponseWriter, req *http.Request) {
+		var tailsReq tailsRequest
+		defer req.Body.Close()
+		if req.Method != http.MethodPost {
+			http.NotFound(w, req)
+			return
+		}
+		b, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+		if err := json.Unmarshal(b, &tailsReq); err != nil {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+		uid := uuid.New()
+		activeTailsMutex.Lock()
+		activeTails[uid.String()] = activeTail{
+			created: time.Now(),
+			uid: uid.String(),
+			host: tailsReq.Hostname,
+		}
+		activeTailsMutex.Unlock()
+
+		var url = "http://" + os.Getenv("NAME") + "." + os.Getenv("NAMESPACE") + "/tails/" + uid.String()
+		if os.Getenv("LOGTAIL_HOST_SUFFIX") != "" {
+			url = "https://" + os.Getenv("NAME") + os.Getenv("LOGTAIL_HOST_SUFFIX") + "/tails/" + uid.String()
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Location", url)
+		w.Write([]byte("{\"url\":\"" + url + "\"}"))
+	})
 
 	// respond to tail requests
 	httpServer.mux.HandleFunc("/tails/", func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
 		if req.Method != http.MethodPost {
 			http.NotFound(w, req)
 			return
@@ -256,14 +348,39 @@ func runWithContext(ctx context.Context) error {
 			http.NotFound(w, req)
 			return
 		}
-		host := pathSegments[2]
+		uid := pathSegments[2]
 		
-		uid := uuid.New()
+		activeTailsMutex.Lock()
+		tail, ok := activeTails[uid]
+		activeTailsMutex.Unlock()
+		if !ok {
+			http.NotFound(w, req)
+			return
+		}
 
-		channel := memory.NewMemoryChannel(uid.String())
+		if tail.created.Add(time.Minute * 5).After(time.Now()) {
+			activeTailsMutex.Lock()
+			delete(activeTails, uid)
+			activeTailsMutex.Unlock()
+			http.NotFound(w, req)
+			return
+		}
+
+		defer func() {
+			activeTailsMutex.Lock()
+			if _, ok := activeTails[uid]; ok {
+				delete(activeTails, uid)
+			}
+			activeTailsMutex.Unlock()
+		}()
+
+		uid = tail.uid
+		host := tail.host
+
+		channel := memory.NewMemoryChannel(uid)
 		timer := time.NewTimer(time.Minute * 30)
 
-		internalEndpoint := "memory://localhost/" + uid.String()
+		internalEndpoint := "memory://localhost/" + uid
 		debug.Infof("Opening stream reading %s (%s)\n", host, internalEndpoint)
 
 		// place a route to send everything coming from our syslog listener to
@@ -276,7 +393,7 @@ func runWithContext(ctx context.Context) error {
 		// tell all other logtrains to forward traffic to us.
 		dssw[0].EmitNewRoute(storage.LogRoute{
 			Hostname: host,
-			Endpoint: getTailsEndpoint(),
+			Endpoint: tailsEndpoint,
 		})
 
 		w.Header().Set("Content-Type", "text/syslog+rfc5424; charset=utf-8")
@@ -300,7 +417,7 @@ func runWithContext(ctx context.Context) error {
 					})
 					dssw[0].EmitRemoveRoute(storage.LogRoute{
 						Hostname: host,
-						Endpoint: getTailsEndpoint(),
+						Endpoint: tailsEndpoint,
 					})
 					return
 				}
@@ -316,7 +433,7 @@ func runWithContext(ctx context.Context) error {
 				})
 				dssw[0].EmitRemoveRoute(storage.LogRoute{
 					Hostname: host,
-					Endpoint: getTailsEndpoint(),
+					Endpoint: tailsEndpoint,
 				})
 				return
 
@@ -329,7 +446,7 @@ func runWithContext(ctx context.Context) error {
 				})
 				dssw[0].EmitRemoveRoute(storage.LogRoute{
 					Hostname: host,
-					Endpoint: getTailsEndpoint(),
+					Endpoint: tailsEndpoint,
 				})
 				return
 			}

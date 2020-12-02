@@ -6,8 +6,10 @@ import (
 	"github.com/akkeris/logtrain/internal/debug"
 	"github.com/akkeris/logtrain/internal/storage"
 	"github.com/fsnotify/fsnotify"
+	"github.com/json-iterator/go"
 	"github.com/influxdata/tail"
 	"github.com/trevorlinton/remote_syslog2/syslog"
+	"github.com/valyala/fastjson"
 	"io"
 	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -260,6 +262,155 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 	return nil, errors.New("invalid filename, no match given")
 }
 
+func (handler *Kubernetes) parseWithStandardJson(file string, fw *fileWatcher, hostAndTag *hostnameAndTag) {
+	debug.Infof("[kubernetes/input] Watching (standard parser): %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+	for {
+		// TODO: investigate if this is better served by using a range instead of select such as in:
+		// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
+		select {
+		case line, ok := <-fw.follower.Lines:
+			if ok && line.Err == nil {
+				var data kubeLine
+				if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
+					// track errors with the lines, but don't report anything.
+					// TODO: should we do more? we shouldnt report this on
+					// the kubernetes error handler as one corrupted file could make
+					// the entire input handler look broken. Brainstorm on this.
+					fw.errors++
+				} else {
+					t, err := time.Parse(kubeTime, data.Time)
+					if err != nil {
+						t = time.Now()
+					}
+					handler.Packets() <- syslog.Packet{
+						Severity: 0,
+						Facility: 0,
+						Time:     t,
+						Hostname: fw.hostname,
+						Tag:      fw.tag,
+						Message:  data.Log,
+					}
+				}
+			} else if ok && line.Err != nil {
+				debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
+				// track errors with the lines, but don't report anything.
+				// TODO: should we do more? we shouldnt report this on
+				// the kubernetes error handler as one corrupted file could make
+				// the entire input handler look broken. Brainstorm on this.
+				fw.errors++
+			} else if !ok {
+				debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+				return
+			}
+		case <-fw.stop:
+			fw.follower.Stop()
+			fw.follower.Cleanup()
+			debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
+			return
+		}
+	}
+}
+
+func (handler *Kubernetes) parseWithJsonIterator(file string, fw *fileWatcher, hostAndTag *hostnameAndTag) {
+	debug.Infof("[kubernetes/input] Watching (json-iterator parser): %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	for {
+		// TODO: investigate if this is better served by using a range instead of select such as in:
+		// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
+		select {
+		case line, ok := <-fw.follower.Lines:
+			if ok && line.Err == nil {
+				var data kubeLine
+				if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
+					// track errors with the lines, but don't report anything.
+					// TODO: should we do more? we shouldnt report this on
+					// the kubernetes error handler as one corrupted file could make
+					// the entire input handler look broken. Brainstorm on this.
+					fw.errors++
+				} else {
+					t, err := time.Parse(kubeTime, data.Time)
+					if err != nil {
+						t = time.Now()
+					}
+					handler.Packets() <- syslog.Packet{
+						Severity: 0,
+						Facility: 0,
+						Time:     t,
+						Hostname: fw.hostname,
+						Tag:      fw.tag,
+						Message:  data.Log,
+					}
+				}
+			} else if ok && line.Err != nil {
+				debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
+				// track errors with the lines, but don't report anything.
+				// TODO: should we do more? we shouldnt report this on
+				// the kubernetes error handler as one corrupted file could make
+				// the entire input handler look broken. Brainstorm on this.
+				fw.errors++
+			} else if !ok {
+				debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+				return
+			}
+		case <-fw.stop:
+			fw.follower.Stop()
+			fw.follower.Cleanup()
+			debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
+			return
+		}
+	}
+}
+
+func (handler *Kubernetes) parseWithFastJson(file string, fw *fileWatcher, hostAndTag *hostnameAndTag) {
+	debug.Infof("[kubernetes/input] Watching (fastjson parser): %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+	var parser fastjson.Parser
+	for {
+		// TODO: investigate if this is better served by using a range instead of select such as in:
+		// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
+		select {
+		case line, ok := <-fw.follower.Lines:
+			if ok && line.Err == nil {
+				v, err := parser.Parse(line.Text)
+				if err != nil {
+					// track errors with the lines, but don't report anything.
+					// TODO: should we do more? we shouldnt report this on
+					// the kubernetes error handler as one corrupted file could make
+					// the entire input handler look broken. Brainstorm on this.
+					fw.errors++
+				} else {
+					t, err := time.Parse(kubeTime, string(v.GetStringBytes("time")))
+					if err != nil {
+						t = time.Now()
+					}
+					handler.Packets() <- syslog.Packet{
+						Severity: 0,
+						Facility: 0,
+						Time:     t,
+						Hostname: fw.hostname,
+						Tag:      fw.tag,
+						Message:  string(v.GetStringBytes("log")),
+					}
+				}
+			} else if ok && line.Err != nil {
+				debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
+				// track errors with the lines, but don't report anything.
+				// TODO: should we do more? we shouldnt report this on
+				// the kubernetes error handler as one corrupted file could make
+				// the entire input handler look broken. Brainstorm on this.
+				fw.errors++
+			} else if !ok {
+				debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
+				return
+			}
+		case <-fw.stop:
+			fw.follower.Stop()
+			fw.follower.Cleanup()
+			debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
+			return
+		}
+	}
+}
+
 func (handler *Kubernetes) add(file string, ioSeek int) error {
 	// The filename has additional details we need.
 	details, err := kubeDetailsFromFileName(file)
@@ -300,54 +451,13 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	handler.followersMutex.Lock()
 	handler.followers[file] = fw
 	handler.followersMutex.Unlock()
-	debug.Infof("[kubernetes/input] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
-	go func() {
-		for {
-			// TODO: investigate if this is better served by using a range instead of select such as in:
-			// https://github.com/trevorlinton/go-tail/blob/master/main.go#L53
-			select {
-			case line, ok := <-fw.follower.Lines:
-				if ok && line.Err == nil {
-					var data kubeLine
-					if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
-						// track errors with the lines, but don't report anything.
-						// TODO: should we do more? we shouldnt report this on
-						// the kubernetes error handler as one corrupted file could make
-						// the entire input handler look broken. Brainstorm on this.
-						fw.errors++
-					} else {
-						t, err := time.Parse(kubeTime, data.Time)
-						if err != nil {
-							t = time.Now()
-						}
-						handler.Packets() <- syslog.Packet{
-							Severity: 0,
-							Facility: 0,
-							Time:     t,
-							Hostname: fw.hostname,
-							Tag:      fw.tag,
-							Message:  data.Log,
-						}
-					}
-				} else if ok && line.Err != nil {
-					debug.Errorf("[kubernetes/input]: Error following file %s: %s", file, line.Err.Error())
-					// track errors with the lines, but don't report anything.
-					// TODO: should we do more? we shouldnt report this on
-					// the kubernetes error handler as one corrupted file could make
-					// the entire input handler look broken. Brainstorm on this.
-					fw.errors++
-				} else if !ok {
-					debug.Debugf("[kubernetes/input]: Watcher was closed on  %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
-					return
-				}
-			case <-fw.stop:
-				fw.follower.Stop()
-				fw.follower.Cleanup()
-				debug.Infof("[kubernetes/input]: Received message to stop watcher for %s.", file)
-				return
-			}
-		}
-	}()
+	if os.Getenv("JSON_PARSER") == "fast" {
+		go handler.parseWithFastJson(file, &fw, hostAndTag)
+	} else if os.Getenv("JSON_PARSER") == "iterator" {
+		go handler.parseWithJsonIterator(file, &fw, hostAndTag)
+	} else {
+		go handler.parseWithStandardJson(file, &fw, hostAndTag)
+	}
 	return nil
 }
 
