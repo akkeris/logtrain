@@ -478,7 +478,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 			case event, ok := <-watcher.Events:
 				if !ok {
 					debug.Errorf("[kubernetes/input] the watcher event channel was closed for %s\n", handler.path)
-					panic("watcher event channel was closed")
+					return
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					debug.Debugf("[kubernetes/input] Watcher loop saw a new create event: %s\n", event.Name)
