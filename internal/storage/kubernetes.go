@@ -260,7 +260,9 @@ func (kds *KubernetesDataSource) addRouteFromObj(obj interface{}) {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
 			for _, drain := range drains {
-				kds.addRoute(host, drain)
+				if strings.TrimSpace(drain) != "" && strings.TrimSpace(host) != "" {
+					kds.addRoute(host, drain)
+				}
 			}
 		}
 	}
@@ -272,7 +274,9 @@ func (kds *KubernetesDataSource) removeRouteFromObj(obj interface{}) {
 			drains := strings.Split(annotation, ";")
 			host := GetHostNameFromTLO(kds.kube, kobj, kds.useAkkerisHosts)
 			for _, drain := range drains {
-				kds.removeRoute(host, drain)
+				if strings.TrimSpace(drain) != "" && strings.TrimSpace(host) != "" {
+					kds.removeRoute(host, drain)
+				}
 			}
 		}
 	}
@@ -300,7 +304,9 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 								// remove route as it was not found in the new set of routes
 								host := GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts)
 								drain := strings.TrimSpace(dOld)
-								kds.removeRoute(host, drain)
+								if strings.TrimSpace(drain) != "" && strings.TrimSpace(host) != "" {
+									kds.removeRoute(host, drain)
+								}
 							}
 						}
 						for _, dNew := range newDrains {
@@ -315,7 +321,9 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 							if !found {
 								// add a new route as it wasn't found in the old set of routes
 								host := GetHostNameFromTLO(kds.kube, kNewObj, kds.useAkkerisHosts)
-								kds.addRoute(host, dNew)
+								if strings.TrimSpace(dNew) != "" && strings.TrimSpace(host) != "" {
+									kds.addRoute(host, dNew)
+								}
 							}
 						}
 					}
