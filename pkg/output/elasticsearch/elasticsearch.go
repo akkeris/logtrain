@@ -97,6 +97,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	q.Del("auth")
 	q.Del("index")
 	esurl.RawQuery = q.Encode()
+	esurl.User = nil
 	node := os.Getenv("NODE") // TODO: pass this into create
 	if node == "" {
 		node = "logtrain"
