@@ -69,25 +69,25 @@ func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, e
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj.DeepCopyObject())
+				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "deployment" || strings.ToLower(ref.Kind) == "deployments" {
 				nObj, err := kube.AppsV1().Deployments(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj.DeepCopyObject())
+				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "daemonset" || strings.ToLower(ref.Kind) == "daemonsets" {
 				nObj, err := kube.AppsV1().DaemonSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj.DeepCopyObject())
+				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "statefulset" || strings.ToLower(ref.Kind) == "statefulsets" {
 				nObj, err := kube.AppsV1().StatefulSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj.DeepCopyObject())
+				return getTopLevelObject(kube, nObj)
 			} else {
 				return nil, errors.New("unrecognized object type " + ref.Kind)
 			}
