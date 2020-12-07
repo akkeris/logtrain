@@ -69,25 +69,25 @@ func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, e
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj)
+				return getTopLevelObject(kube, nObj.DeepCopyObject())
 			} else if strings.ToLower(ref.Kind) == "deployment" || strings.ToLower(ref.Kind) == "deployments" {
 				nObj, err := kube.AppsV1().Deployments(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj)
+				return getTopLevelObject(kube, nObj.DeepCopyObject())
 			} else if strings.ToLower(ref.Kind) == "daemonset" || strings.ToLower(ref.Kind) == "daemonsets" {
 				nObj, err := kube.AppsV1().DaemonSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj)
+				return getTopLevelObject(kube, nObj.DeepCopyObject())
 			} else if strings.ToLower(ref.Kind) == "statefulset" || strings.ToLower(ref.Kind) == "statefulsets" {
 				nObj, err := kube.AppsV1().StatefulSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
 				if err != nil {
 					return nil, err
 				}
-				return getTopLevelObject(kube, nObj)
+				return getTopLevelObject(kube, nObj.DeepCopyObject())
 			} else {
 				return nil, errors.New("unrecognized object type " + ref.Kind)
 			}
@@ -130,6 +130,11 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 	if err != nil {
 		debug.Errorf("[kubernetes/input]: Unable to get top level object for obj %s/%s/%s due to %s", obj.GetResourceVersion(), obj.GetNamespace(), obj.GetName(), err.Error())
 		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
+	}
+	if top.GetUID() == obj.GetUID() {
+		debug.Infof("[kubernetes/input]: Warning: The object %s.%s did not have a parent. Owner References were: %#+v\n", obj.GetName(), obj.GetNamespace(), obj.GetOwnerReferences())
+	} else {
+		debug.Infof("[kubernetes/input]: Found parent %s.%s for %s.%s\n", top.GetName(), top.GetNamespace(), obj.GetName(), obj.GetNamespace())
 	}
 	if host, ok := top.GetAnnotations()[storage.HostnameAnnotationKey]; ok {
 		if tag, ok := top.GetAnnotations()[storage.TagAnnotationKey]; ok {
@@ -432,7 +437,7 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	hostAndTag := deriveHostnameFromPod(details.Pod, details.Namespace, useAkkerisHosts)
 	pod, err := handler.kube.CoreV1().Pods(details.Namespace).Get(details.Pod, api.GetOptions{})
 	if err != nil {
-		debug.Errorf("Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
+		debug.Errorf("[kubernetes/input]: Unable to get pod details from kubernetes for pod %#+v due to %s\n", details, err.Error())
 	} else {
 		hostAndTag = getHostnameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
