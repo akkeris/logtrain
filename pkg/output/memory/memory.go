@@ -23,7 +23,7 @@ type Syslog struct {
 
 var syslogSchemas = []string{"memory://"}
 
-func NewMemoryChannel(uid string) <- chan syslog.Packet {
+func NewMemoryChannel(uid string) <-chan syslog.Packet {
 	GlobalInternalOutputs[uid] = make(chan syslog.Packet, 1)
 	return GlobalInternalOutputs[uid]
 }

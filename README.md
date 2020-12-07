@@ -15,16 +15,19 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
 
 ### Elastic Search
 
-  * `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
-  * `es+http://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
+  * `es+https://user:password@host?[auth=apikey|bearer|basic]&[index=...]&[insecure=true]` 
+  * `es+http://user:password@host?[auth=apikey|bearer|basic]&[index=...]&[insecure=true]` 
 
 The bearer token is taken from the password portion of the url. 
 Api keys the API id should be used as the username and the API key should be the password.
+Setting insecure=true ignores certificate failures
 
 ### Http
 
   * `http://host/path`
-  * `https://host/path`
+  * `https://host/path?[insecure=true]`
+
+Setting insecure=true ignores certificate failures
 
 ### Syslog
 

@@ -15,12 +15,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"os/signal"
-	"io/ioutil"
 	rpprof "runtime/pprof"
 	"strings"
 	"sync"
@@ -45,8 +45,8 @@ type tailsRequest struct {
 
 type activeTail struct {
 	created time.Time
-	uid string
-	host string
+	uid     string
+	host    string
 }
 
 var maxLogSize = 99990
@@ -211,7 +211,7 @@ func runSweepTails() {
 
 	for {
 		select {
-		case <- timer.C:
+		case <-timer.C:
 			activeTailsMutex.Lock()
 			newActiveTails := make(map[string]activeTail, 0)
 			for key, val := range activeTails {
@@ -298,7 +298,7 @@ func runWithContext(ctx context.Context) error {
 	if err := addInputsToRouter(router, httpServer); err != nil {
 		return err
 	}
-	
+
 	httpServer.mux.HandleFunc("/tails", func(w http.ResponseWriter, req *http.Request) {
 		var tailsReq tailsRequest
 		defer req.Body.Close()
@@ -319,8 +319,8 @@ func runWithContext(ctx context.Context) error {
 		activeTailsMutex.Lock()
 		activeTails[uid.String()] = activeTail{
 			created: time.Now(),
-			uid: uid.String(),
-			host: tailsReq.Hostname,
+			uid:     uid.String(),
+			host:    tailsReq.Hostname,
 		}
 		activeTailsMutex.Unlock()
 

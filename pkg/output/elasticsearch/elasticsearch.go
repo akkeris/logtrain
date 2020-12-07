@@ -1,6 +1,7 @@
 package elasticsearch
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"github.com/trevorlinton/remote_syslog2/syslog"
@@ -30,7 +31,7 @@ type Syslog struct {
 
 const (
 	AuthNone int = iota
-	AuthApiKey 
+	AuthApiKey
 	AuthBearer
 	AuthBasic
 )
@@ -93,9 +94,16 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 			auth = AuthBasic
 		}
 	}
+	client := http.Client{}
+	if u.Query().Get("insecure") == "true" {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
 	q := esurl.Query()
 	q.Del("auth")
 	q.Del("index")
+	q.Del("insecure")
 	esurl.RawQuery = q.Encode()
 	esurl.User = nil
 	node := os.Getenv("NODE") // TODO: pass this into create
@@ -109,7 +117,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		endpoint: endpoint,
 		url:      *u,
 		esurl:    *esurl,
-		client:   &http.Client{},
+		client:   &client,
 		packets:  make(chan syslog.Packet, 10),
 		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),

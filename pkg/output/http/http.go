@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
@@ -41,10 +42,19 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if err != nil {
 		return nil, err
 	}
+	client := http.Client{}
+	if u.Query().Get("insecure") == "true" {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		q := u.Query()
+		q.Del("insecure")
+		u.RawQuery = q.Encode()
+	}
 	return &Syslog{
 		endpoint: endpoint,
 		url:      *u,
-		client:   &http.Client{},
+		client:   &client,
 		packets:  make(chan syslog.Packet, 10),
 		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),
