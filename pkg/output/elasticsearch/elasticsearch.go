@@ -93,8 +93,10 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 			auth = AuthBasic
 		}
 	}
-	esurl.Query().Del("apikey")
-	esurl.Query().Del("index")
+	q := esurl.Query()
+	q.Del("auth")
+	q.Del("index")
+	esurl.RawQuery = q.Encode()
 	node := os.Getenv("NODE") // TODO: pass this into create
 	if node == "" {
 		node = "logtrain"
