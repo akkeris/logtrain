@@ -64,7 +64,7 @@ func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, e
 	refs := obj.GetOwnerReferences()
 	debug.Infof("[kubernetes/input]: Attempting to find owner of %s.%s", obj.GetName(), obj.GetNamespace())
 	for _, ref := range refs {
-		if ref.Controller == nil || *ref.Controller == false {
+		if ref.Controller != nil && *ref.Controller == true {
 			debug.Infof("[kubernetes/input]: Attempting to find owner of %s.%s looking at ref %#+v\n", obj.GetName(), obj.GetNamespace(), ref)
 			if strings.ToLower(ref.Kind) == "replicaset" || strings.ToLower(ref.Kind) == "replicasets" {
 				nObj, err := kube.AppsV1().ReplicaSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
