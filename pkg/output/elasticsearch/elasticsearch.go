@@ -165,7 +165,7 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload += "{\"create\":{ \"_source\": \"logtrain\" \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
+			payload += "{\"create\":{ \"_source\": \"logtrain\", \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
 				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
 				"\", \"hostname\":\"" + cleanString(p.Hostname) +
 				"\", \"tag\":\"" + cleanString(p.Tag) +
