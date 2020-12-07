@@ -19,6 +19,7 @@ Logtrain is a system for dynamically forwarding and transforming logs, similar t
   * `es+http://user:password@host?[auth=apikey|bearer|basic]&[index=...]` 
 
 The bearer token is taken from the password portion of the url. 
+Api keys the API id should be used as the username and the API key should be the password.
 
 ### Http
 

@@ -64,7 +64,11 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		return nil, err
 	}
 	if strings.HasPrefix(u.Path, "/_bulk") == false {
-		u.Path = u.Path + "/_bulk"
+		if strings.HasSuffix(u.Path, "/") == true {
+			u.Path = u.Path + "_bulk"
+		} else {
+			u.Path = u.Path + "/_bulk"
+		}
 	}
 	node := os.Getenv("NODE") // TODO: pass this into create
 	if node == "" {
