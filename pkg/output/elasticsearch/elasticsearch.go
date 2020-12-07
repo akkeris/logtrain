@@ -15,16 +15,25 @@ import (
 
 // Syslog creates a new syslog output to elasticsearch
 type Syslog struct {
+	auth     int
 	akkeris  bool
 	node     string
 	index    string
 	url      url.URL
+	esurl    url.URL
 	endpoint string
 	client   *http.Client
 	packets  chan syslog.Packet
 	errors   chan<- error
 	stop     chan struct{}
 }
+
+const (
+	AuthNone int = iota
+	AuthApiKey 
+	AuthBearer
+	AuthBasic
+)
 
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
 
@@ -63,22 +72,40 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasPrefix(u.Path, "/_bulk") == false {
-		if strings.HasSuffix(u.Path, "/") == true {
-			u.Path = u.Path + "_bulk"
+	esurl, err := url.Parse(u.String())
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasPrefix(esurl.Path, "/_bulk") == false {
+		if strings.HasSuffix(esurl.Path, "/") == true {
+			esurl.Path = esurl.Path + "_bulk"
 		} else {
-			u.Path = u.Path + "/_bulk"
+			esurl.Path = esurl.Path + "/_bulk"
 		}
 	}
+	auth := AuthNone
+	if _, ok := esurl.User.Password(); ok {
+		if strings.ToLower(u.Query().Get("auth")) == "bearer" {
+			auth = AuthBearer
+		} else if strings.ToLower(u.Query().Get("auth")) == "apikey" {
+			auth = AuthApiKey
+		} else {
+			auth = AuthBasic
+		}
+	}
+	esurl.Query().Del("apikey")
+	esurl.Query().Del("index")
 	node := os.Getenv("NODE") // TODO: pass this into create
 	if node == "" {
 		node = "logtrain"
 	}
 	return &Syslog{
+		auth:     auth,
 		node:     node,
 		index:    u.Query().Get("index"),
 		endpoint: endpoint,
 		url:      *u,
+		esurl:    *esurl,
 		client:   &http.Client{},
 		packets:  make(chan syslog.Packet, 10),
 		errors:   errorsCh,
@@ -137,15 +164,15 @@ func (log *Syslog) loop() {
 				", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
 		case <-timer.C:
 			if payload != "" {
-				req, err := http.NewRequest(http.MethodPost, log.url.String(), strings.NewReader(string(payload)))
+				req, err := http.NewRequest(http.MethodPost, log.esurl.String(), strings.NewReader(string(payload)))
 				if err != nil {
 					log.errors <- err
 				} else {
 					req.Header.Set("content-type", "application/json")
 					if pwd, ok := log.url.User.Password(); ok {
-						if strings.ToLower(log.url.Query().Get("auth")) == "bearer" {
+						if log.auth == AuthBearer {
 							req.Header.Set("Authorization", "Bearer "+pwd)
-						} else if strings.ToLower(log.url.Query().Get("auth")) == "apikey" {
+						} else if log.auth == AuthApiKey {
 							req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
 						} else {
 							req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
