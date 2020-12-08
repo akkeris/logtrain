@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// For more information on elastic search bulk API, see: 
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
+
 // Syslog creates a new syslog output to elasticsearch
 type Syslog struct {
 	auth     int
@@ -37,9 +40,24 @@ const (
 	AuthBasic
 )
 
-var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
+type elasticSearchHeaderCreate struct {
+	Source string `json:"_source"`
+	Id string `json:"_id"`
+	Index string `json:"_index"`
+}
+type elasticSearchHeader struct {
+	Create elasticSearchHeaderCreate `json:"create"`
+}
+type elasticSearchBody struct {
+	Timestamp string `json:"@timestamp"`
+	Hostname string `json:"hostname"`
+	Tag string `json:"tag"`
+	Message string `json:"message"`
+	Severity int `json:"severity"`
+	Facility int `json:"facility"`
+}
 
-// https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
+var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
 
 // Test the schema to see if its an elasticsearch schema
 func Test(endpoint string) bool {
@@ -115,7 +133,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		url:      *u,
 		esurl:    *esurl,
 		client:   &client,
-		packets:  make(chan syslog.Packet, 10),
+		packets:  make(chan syslog.Packet, 1024),
 		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),
 		akkeris:  os.Getenv("AKKERIS") == "true", // TODO: pass this in to Create for all outputs.
@@ -143,24 +161,6 @@ func (log *Syslog) Pools() bool {
 // Packets returns a channel to send syslog packets on
 func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
-}
-
-type elasticSearchHeaderCreate struct {
-	Source string `json:"_source"`
-	Id string `json:"_id"`
-	Index string `json:"_index"`
-}
-type elasticSearchHeader struct {
-	Create elasticSearchHeaderCreate `json:"create"`
-}
-
-type elasticSearchBody struct {
-	Timestamp string `json:"@timestamp"`
-	Hostname string `json:"hostname"`
-	Tag string `json:"tag"`
-	Message string `json:"message"`
-	Severity int `json:"severity"`
-	Facility int `json:"facility"`
 }
 
 func (log *Syslog) loop() {

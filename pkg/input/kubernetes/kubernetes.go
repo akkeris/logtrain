@@ -62,34 +62,28 @@ type Kubernetes struct {
 
 func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, error) {
 	refs := obj.GetOwnerReferences()
-	debug.Infof("[kubernetes/input]: Attempting to find owner of %s.%s", obj.GetName(), obj.GetNamespace())
 	for _, ref := range refs {
 		if ref.Controller != nil && *ref.Controller == true {
-			debug.Infof("[kubernetes/input]: Attempting to find owner of %s.%s looking at ref %#+v\n", obj.GetName(), obj.GetNamespace(), ref)
 			if strings.ToLower(ref.Kind) == "replicaset" || strings.ToLower(ref.Kind) == "replicasets" {
 				nObj, err := kube.AppsV1().ReplicaSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
-				debug.Infof("[kubernetes/input]: Found replicaset as owner of %s.%s, recursing into %#+v\n", obj.GetName(), obj.GetNamespace(), nObj)
 				if err != nil {
 					return nil, err
 				}
 				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "deployment" || strings.ToLower(ref.Kind) == "deployments" {
 				nObj, err := kube.AppsV1().Deployments(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
-				debug.Infof("[kubernetes/input]: Found deployment as owner of %s.%s, recursing into %#+v\n", obj.GetName(), obj.GetNamespace(), nObj)
 				if err != nil {
 					return nil, err
 				}
 				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "daemonset" || strings.ToLower(ref.Kind) == "daemonsets" {
 				nObj, err := kube.AppsV1().DaemonSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
-				debug.Infof("[kubernetes/input]: Found daemonsets as owner of %s.%s, recursing into %#+v\n", obj.GetName(), obj.GetNamespace(), nObj)
 				if err != nil {
 					return nil, err
 				}
 				return getTopLevelObject(kube, nObj)
 			} else if strings.ToLower(ref.Kind) == "statefulset" || strings.ToLower(ref.Kind) == "statefulsets" {
 				nObj, err := kube.AppsV1().StatefulSets(obj.GetNamespace()).Get(ref.Name, api.GetOptions{})
-				debug.Infof("[kubernetes/input]: Found statefulset as owner of %s.%s, recursing into %#+v\n", obj.GetName(), obj.GetNamespace(), nObj)
 				if err != nil {
 					return nil, err
 				}
@@ -138,7 +132,7 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 		return deriveHostnameFromPod(obj.GetName(), obj.GetNamespace(), useAkkerisHosts)
 	}
 	if top.GetUID() == obj.GetUID() {
-		debug.Infof("[kubernetes/input]: Warning: The object %s.%s did not have a parent. Owner References were: %#+v\n", obj.GetName(), obj.GetNamespace(), obj.GetOwnerReferences())
+		debug.Infof("[kubernetes/input]: Warning: The object %s.%s did not have a parent.\n", obj.GetName(), obj.GetNamespace())
 	} else {
 		debug.Infof("[kubernetes/input]: Found parent %s.%s for %s.%s\n", top.GetName(), top.GetNamespace(), obj.GetName(), obj.GetNamespace())
 	}
