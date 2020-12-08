@@ -148,7 +148,7 @@ func (log *Syslog) Packets() chan syslog.Packet {
 type elasticSearchHeaderCreate struct {
 	Source string `json:"_source"`
 	Id string `json:"_id"`
-	Index string `json:"_index`
+	Index string `json:"_index"`
 }
 type elasticSearchHeader struct {
 	Create elasticSearchHeaderCreate `json:"create"`
