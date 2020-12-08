@@ -38,6 +38,7 @@ func TestPostgresDataSource(t *testing.T) {
 	ds, err := CreatePostgresDataSource(db, &listener, false)
 
 	Convey("Ensure we can create a pg datasource", t, func() {
+		So(ds.Dial(), ShouldBeNil)
 		So(err, ShouldBeNil)
 		So(ds, ShouldNotBeNil)
 	})

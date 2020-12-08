@@ -212,6 +212,11 @@ func (pds *PostgresDataSource) listenForChanges() {
 	}
 }
 
+// Dial connects the data source
+func (pds *PostgresDataSource) Dial() error {
+	return nil
+}
+
 func CreatePostgresDataSource(db *sql.DB, listener Listener, init bool) (*PostgresDataSource, error) {
 	pds := PostgresDataSource{
 		listener: listener,

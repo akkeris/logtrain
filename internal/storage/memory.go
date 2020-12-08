@@ -64,6 +64,11 @@ func (dataSource *MemoryDataSource) Close() error {
 	return nil
 }
 
+// Dial connects the data source
+func (dataSource *MemoryDataSource) Dial() error {
+	return nil
+}
+
 // CreateMemoryDataSource creates a memory data source for testing or logtail.
 func CreateMemoryDataSource() *MemoryDataSource {
 	return &MemoryDataSource{

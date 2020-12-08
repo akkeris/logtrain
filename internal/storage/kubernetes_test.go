@@ -25,6 +25,7 @@ func TestKubernetesDataSource(t *testing.T) {
 	}
 
 	Convey("test creating client", t, func() {
+		So(ds.Dial(), ShouldBeNil)
 		f, err := os.Create("/tmp/kubeconfigtest")
 		So(err, ShouldBeNil)
 		f.WriteString(`

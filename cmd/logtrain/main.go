@@ -127,6 +127,11 @@ func createRouter(ds []storage.DataSource) (*router.Router, error) {
 	if err := r.Dial(); err != nil {
 		return nil, err
 	}
+	for _, d := range ds {
+		if err := d.Dial(); err != nil {
+			return nil, err
+		}
+	}
 	return r, nil
 }
 

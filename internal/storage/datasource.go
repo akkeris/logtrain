@@ -18,6 +18,7 @@ type DataSource interface {
 	EmitRemoveRoute(route LogRoute) error
 	Writable() bool
 	Close() error
+	Dial() error
 }
 
 // LogRoute describes a structure for routes from Hostname -> Endpoint

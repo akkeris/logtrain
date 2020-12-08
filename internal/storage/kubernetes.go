@@ -341,6 +341,98 @@ func (kds *KubernetesDataSource) reviewUpdateFromObj(oldObj interface{}, newObj 
 	}
 }
 
+// Dial connects the data source
+func (kds *KubernetesDataSource) Dial() error {
+	rest := kds.kube.CoreV1().RESTClient()
+
+	// Do not watch replicasets. They're rarely directly used and are an order of magnitude
+	// more resources to keep track of than deployments+statefulsets+daemonsets. Profiles caused
+	// this to go from 100k
+
+	// Watch deployments
+	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
+	listWatchDeployments.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kds.kube.AppsV1().Deployments(meta.NamespaceAll).List(options)
+	}
+	listWatchDeployments.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kds.kube.AppsV1().Deployments(meta.NamespaceAll).Watch(meta.ListOptions{})
+	}
+	_, controllerDeployments := cache.NewInformer(
+		listWatchDeployments,
+		&apps.Deployment{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    kds.addRouteFromObj,
+			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
+		},
+	)
+	deployments, err := kds.kube.AppsV1().Deployments(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, item := range deployments.Items {
+		kds.addRouteFromObj(item.DeepCopyObject())
+	}
+
+	// Watch daemonsets
+	listWatchDaemonSets := cache.NewListWatchFromClient(rest, "daemonsets", "", fields.Everything())
+	listWatchDaemonSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kds.kube.AppsV1().DaemonSets(meta.NamespaceAll).List(options)
+	}
+	listWatchDaemonSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kds.kube.AppsV1().DaemonSets(meta.NamespaceAll).Watch(meta.ListOptions{})
+	}
+	_, controllerDaemonSets := cache.NewInformer(
+		listWatchDaemonSets,
+		&apps.DaemonSet{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    kds.addRouteFromObj,
+			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
+		},
+	)
+	daemonsets, err := kds.kube.AppsV1().DaemonSets(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, item := range daemonsets.Items {
+		kds.addRouteFromObj(item.DeepCopyObject())
+	}
+
+	// Watch statefulsets
+	listWatchStatefulSets := cache.NewListWatchFromClient(rest, "statefulsets", "", fields.Everything())
+	listWatchStatefulSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kds.kube.AppsV1().StatefulSets(meta.NamespaceAll).List(options)
+	}
+	listWatchStatefulSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kds.	kube.AppsV1().StatefulSets(meta.NamespaceAll).Watch(meta.ListOptions{})
+	}
+	_, controllerStatefulSets := cache.NewInformer(
+		listWatchStatefulSets,
+		&apps.StatefulSet{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    kds.addRouteFromObj,
+			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
+		},
+	)
+	statefulsets, err := kds.kube.AppsV1().StatefulSets(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, item := range statefulsets.Items {
+		kds.addRouteFromObj(item.DeepCopyObject())
+	}
+
+	go controllerDeployments.Run(kds.stop)
+	go controllerDaemonSets.Run(kds.stop)
+	go controllerStatefulSets.Run(kds.stop)
+	return nil
+}
+
 func hasAccessTo(kube kubernetes.Interface, verb, group, resource string) bool {
 	policy := authorization.SelfSubjectAccessReview{
 		Spec: authorization.SelfSubjectAccessReviewSpec{
@@ -369,13 +461,12 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 	if os.Getenv("AKKERIS") == "true" {
 		useAkkeris = true
 	}
-	rest := kube.CoreV1().RESTClient()
 	kds := KubernetesDataSource{
 		useAkkerisHosts: useAkkeris,
 		stop:            make(chan struct{}, 1),
 		kube:            kube,
-		add:             make(chan LogRoute, 10),
-		remove:          make(chan LogRoute, 10),
+		add:             make(chan LogRoute, 1024),
+		remove:          make(chan LogRoute, 1024),
 		routes:          make([]LogRoute, 0),
 		closed:          false,
 		writable:        false,
@@ -407,92 +498,6 @@ func CreateKubernetesDataSource(kube kubernetes.Interface, checkPermissions bool
 	} else {
 		debug.Infof("[kubernetes/datasource] Write permissions are not available, the logtail may not run correctly.")
 	}
-
-	// Do not watch replicasets. They're rarely directly used and are an order of magnitude
-	// more resources to keep track of than deployments+statefulsets+daemonsets. Profiles caused
-	// this to go from 100k
-
-	// Watch deployments
-	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
-	listWatchDeployments.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().Deployments(meta.NamespaceAll).List(options)
-	}
-	listWatchDeployments.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().Deployments(meta.NamespaceAll).Watch(meta.ListOptions{})
-	}
-	_, controllerDeployments := cache.NewInformer(
-		listWatchDeployments,
-		&apps.Deployment{},
-		time.Second*0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    kds.addRouteFromObj,
-			DeleteFunc: kds.removeRouteFromObj,
-			UpdateFunc: kds.reviewUpdateFromObj,
-		},
-	)
-	deployments, err := kube.AppsV1().Deployments(meta.NamespaceAll).List(meta.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range deployments.Items {
-		kds.addRouteFromObj(item.DeepCopyObject())
-	}
-
-	// Watch daemonsets
-	listWatchDaemonSets := cache.NewListWatchFromClient(rest, "daemonsets", "", fields.Everything())
-	listWatchDaemonSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().DaemonSets(meta.NamespaceAll).List(options)
-	}
-	listWatchDaemonSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().DaemonSets(meta.NamespaceAll).Watch(meta.ListOptions{})
-	}
-	_, controllerDaemonSets := cache.NewInformer(
-		listWatchDaemonSets,
-		&apps.DaemonSet{},
-		time.Second*0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    kds.addRouteFromObj,
-			DeleteFunc: kds.removeRouteFromObj,
-			UpdateFunc: kds.reviewUpdateFromObj,
-		},
-	)
-	daemonsets, err := kube.AppsV1().DaemonSets(meta.NamespaceAll).List(meta.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range daemonsets.Items {
-		kds.addRouteFromObj(item.DeepCopyObject())
-	}
-
-	// Watch statefulsets
-	listWatchStatefulSets := cache.NewListWatchFromClient(rest, "statefulsets", "", fields.Everything())
-	listWatchStatefulSets.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
-		return kube.AppsV1().StatefulSets(meta.NamespaceAll).List(options)
-	}
-	listWatchStatefulSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
-		return kube.AppsV1().StatefulSets(meta.NamespaceAll).Watch(meta.ListOptions{})
-	}
-	_, controllerStatefulSets := cache.NewInformer(
-		listWatchStatefulSets,
-		&apps.StatefulSet{},
-		time.Second*0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    kds.addRouteFromObj,
-			DeleteFunc: kds.removeRouteFromObj,
-			UpdateFunc: kds.reviewUpdateFromObj,
-		},
-	)
-	statefulsets, err := kube.AppsV1().StatefulSets(meta.NamespaceAll).List(meta.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range statefulsets.Items {
-		kds.addRouteFromObj(item.DeepCopyObject())
-	}
-
-	go controllerDeployments.Run(kds.stop)
-	go controllerDaemonSets.Run(kds.stop)
-	go controllerStatefulSets.Run(kds.stop)
 
 	debug.Infof("[kubernetes/datasource]: Creating new kubernetes storage...done\n")
 	return &kds, nil
