@@ -2,6 +2,7 @@ package elasticsearch
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"encoding/base64"
 	"errors"
 	"github.com/trevorlinton/remote_syslog2/syslog"
@@ -165,14 +166,17 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			payload += "{\"create\":{ \"_source\": \"logtrain\", \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
-				"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
-				"\", \"hostname\":\"" + cleanString(p.Hostname) +
-				"\", \"tag\":\"" + cleanString(p.Tag) +
-				systemTags +
-				"\", \"message\":\"" + cleanString(p.Message) +
-				"\", \"severity\":" + strconv.Itoa(int(p.Severity)) +
-				", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
+			
+			if b, err := json.Marshal(p.Message); err == nil {
+				payload += "{\"create\":{ \"_source\": \"logtrain\", \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
+					"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
+					"\", \"hostname\":\"" + cleanString(p.Hostname) +
+					"\", \"tag\":\"" + cleanString(p.Tag) +
+					systemTags +
+					"\", \"message\":" + string(b) +
+					", \"severity\":" + strconv.Itoa(int(p.Severity)) +
+					", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
+			}
 		case <-timer.C:
 			if payload != "" {
 				req, err := http.NewRequest(http.MethodPost, log.esurl.String(), strings.NewReader(string(payload)))
