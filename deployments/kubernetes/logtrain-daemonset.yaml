@@ -78,7 +78,7 @@ spec:
           protocol: UDP
         resources:
           limits:
-            memory: 96Mi
+            memory: 128Mi
           requests:
             memory: 64Mi
         securityContext:

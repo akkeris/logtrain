@@ -39,10 +39,6 @@ const (
 
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
 
-func cleanString(str string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(str, "\"", "\\\""), "\n", "\\n"), "\r", "\\r"), "\x00", "")
-}
-
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
 // Test the schema to see if its an elasticsearch schema
@@ -149,13 +145,27 @@ func (log *Syslog) Packets() chan syslog.Packet {
 	return log.packets
 }
 
+type elasticSearchHeaderCreate struct {
+	Source string `json:"_source"`
+	Id string `json:"_id"`
+	Index string `json:"_index`
+}
+type elasticSearchHeader struct {
+	Create elasticSearchHeaderCreate `json:"create"`
+}
+
+type elasticSearchBody struct {
+	Timestamp string `json:"@timestamp"`
+	Hostname string `json:"hostname"`
+	Tag string `json:"tag"`
+	Message string `json:"message"`
+	Severity int `json:"severity"`
+	Facility int `json:"facility"`
+}
+
 func (log *Syslog) loop() {
 	timer := time.NewTicker(time.Second)
 	var payload string = ""
-	var systemTags = ""
-	if log.akkeris {
-		systemTags = "\", \"akkeris\":\"true"
-	}
 	for {
 		select {
 		case p, ok := <-log.packets:
@@ -167,15 +177,27 @@ func (log *Syslog) loop() {
 				index = p.Hostname
 			}
 			
-			if b, err := json.Marshal(p.Message); err == nil {
-				payload += "{\"create\":{ \"_source\": \"logtrain\", \"_id\": \"" + strconv.Itoa(int(time.Now().Unix())) + "\", \"_index\": \"" + cleanString(index) + "\" }}\n" +
-					"{ \"@timestamp\":\"" + p.Time.Format(syslog.Rfc5424time) +
-					"\", \"hostname\":\"" + cleanString(p.Hostname) +
-					"\", \"tag\":\"" + cleanString(p.Tag) +
-					systemTags +
-					"\", \"message\":" + string(b) +
-					", \"severity\":" + strconv.Itoa(int(p.Severity)) +
-					", \"facility\":" + strconv.Itoa(int(p.Facility)) + " }\n"
+			header := elasticSearchHeader{
+				Create: elasticSearchHeaderCreate{
+					Source: "logtrain",
+					Id: strconv.Itoa(int(time.Now().Unix())),
+					Index: index,
+				},
+			}
+
+			body := elasticSearchBody{
+				Timestamp: p.Time.Format(syslog.Rfc5424time),
+				Hostname: p.Hostname,
+				Tag: p.Tag,
+				Message: p.Message,
+				Severity: int(p.Severity),
+				Facility: int(p.Facility),
+			}
+
+			if h, err := json.Marshal(header); err == nil {
+				if b, err := json.Marshal(body); err == nil {
+					payload += string(h) + "\n" + string(b) + "\n"
+				}
 			}
 		case <-timer.C:
 			if payload != "" {
