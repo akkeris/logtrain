@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,6 +29,7 @@ type Syslog struct {
 	esurl    url.URL
 	endpoint string
 	client   *http.Client
+	mutex    *sync.Mutex
 	packets  chan syslog.Packet
 	errors   chan<- error
 	stop     chan struct{}
@@ -133,6 +135,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		url:      *u,
 		esurl:    *esurl,
 		client:   &client,
+		mutex:    &sync.Mutex{},
 		packets:  make(chan syslog.Packet, 1024),
 		errors:   errorsCh,
 		stop:     make(chan struct{}, 1),
@@ -196,40 +199,48 @@ func (log *Syslog) loop() {
 
 			if h, err := json.Marshal(header); err == nil {
 				if b, err := json.Marshal(body); err == nil {
+
+					log.mutex.Lock()
 					payload += string(h) + "\n" + string(b) + "\n"
+					log.mutex.Unlock()
 				}
 			}
 		case <-timer.C:
 			if payload != "" {
-				req, err := http.NewRequest(http.MethodPost, log.esurl.String(), strings.NewReader(string(payload)))
-				if err != nil {
-					log.errors <- err
-				} else {
-					req.Header.Set("content-type", "application/json")
-					if pwd, ok := log.url.User.Password(); ok {
-						if log.auth == AuthBearer {
-							req.Header.Set("Authorization", "Bearer "+pwd)
-						} else if log.auth == AuthApiKey {
-							req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
-						} else {
-							req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
-						}
-					}
-					resp, err := log.client.Do(req)
+				go func() {
+					log.mutex.Lock()
+					body := payload
+					payload = ""
+					req, err := http.NewRequest(http.MethodPost, log.esurl.String(), strings.NewReader(string(body)))
+					log.mutex.Unlock()
 					if err != nil {
 						log.errors <- err
 					} else {
-						body, err := ioutil.ReadAll(resp.Body)
-						if err != nil {
-							body = []byte{}
+						req.Header.Set("content-type", "application/json")
+						if pwd, ok := log.url.User.Password(); ok {
+							if log.auth == AuthBearer {
+								req.Header.Set("Authorization", "Bearer "+pwd)
+							} else if log.auth == AuthApiKey {
+								req.Header.Set("Authorization", "ApiKey "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
+							} else {
+								req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(log.url.User.Username()+":"+string(pwd))))
+							}
 						}
-						resp.Body.Close()
-						if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
-							log.errors <- errors.New("invalid response from endpoint: " + resp.Status + " " + string(body) + "sent: [[ " + payload + " ]]")
+						resp, err := log.client.Do(req)
+						if err != nil {
+							log.errors <- err
+						} else {
+							rbody, err := ioutil.ReadAll(resp.Body)
+							if err != nil {
+								rbody = []byte{}
+							}
+							resp.Body.Close()
+							if resp.StatusCode >= http.StatusMultipleChoices || resp.StatusCode < http.StatusOK {
+								log.errors <- errors.New("invalid response from endpoint: " + resp.Status + " " + string(rbody) + "sent: [[ " + body + " ]]")
+							}
 						}
 					}
-				}
-				payload = ""
+				}()
 			}
 		case <-log.stop:
 			return
