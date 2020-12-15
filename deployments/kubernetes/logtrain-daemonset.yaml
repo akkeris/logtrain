@@ -60,11 +60,9 @@ spec:
           value: "true"
         - name: DEBUG
           value: "true"
-        - name: JSON_PARSER
-          value: "fast"
         command:
           - ./logtrain
-        image: akkeris/logtrain:v0.5.1 # TODO add ability to auto-update this on release.
+        image: akkeris/logtrain:v0.5.2 # TODO add ability to auto-update this on release.
         imagePullPolicy: IfNotPresent
         name: logtrain
         ports:

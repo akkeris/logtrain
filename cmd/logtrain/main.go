@@ -90,7 +90,6 @@ func cancelOnInterrupt(ctx context.Context, f context.CancelFunc) {
 			if options.CpuProfile != "" {
 				rpprof.StopCPUProfile()
 			}
-
 			if options.MemProfile != "" {
 				f, err := os.Create(options.MemProfile)
 				if err != nil {
