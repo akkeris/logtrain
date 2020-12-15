@@ -33,46 +33,31 @@ var options struct {
 }
 
 var (
-	syslogConnections = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_connections",
-			Help:       "Amount of syslog outbound connections.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogPressure = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_pressure",
-			Help:       "The percentage of buffers that are full waiting to be sent.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogSent = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_sent",
-			Help:       "The amount of packets sent via a syslog (successful or not).",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogErrors = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_errors",
-			Help:       "The amount of packets that could not be sent.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"syslog"},
-	)
-	syslogDeadPackets = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "logtrain_syslog_deadpackets",
-			Help:       "The amount of packets received with no route.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"service"},
-	)
+	syslogConnections = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:       "logtrain_connections",
+		Help:       "Amount of outbound syslog connections.",
+		Buckets: 	prometheus.LinearBuckets(0, 5, 10),
+	}, []string{"syslog"})
+	syslogPressure = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:       "logtrain_pressure",
+		Help:       "The percentage of buffers that are full waiting to be sent.",
+		Buckets: 	prometheus.LinearBuckets(0, 0.1, 10),
+	}, []string{"syslog"})
+	syslogSent = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:       "logtrain_packets_sent",
+		Help:       "The amount of packets sent via a syslog (successful or not).",
+		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+	}, []string{"syslog"})
+	syslogErrors = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:       "logtrain_errors",
+		Help:       "The amount of packets that could not be sent.",
+		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+	}, []string{"syslog"})
+	syslogDeadPackets = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:       "logtrain_deadpackets",
+		Help:       "The amount of packets received with no route.",
+		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+	})
 )
 
 type httpServer struct {
@@ -297,7 +282,7 @@ func prometheusMetricsLoop(router *router.Router) {
 
 				// TODO: sanitize endpoint.
 			}
-			syslogDeadPackets.WithLabelValues("uniform").Observe(float64(router.DeadPackets()))
+			syslogDeadPackets.Observe(float64(router.DeadPackets()))
 			router.ResetMetrics()
 		}
 	}
