@@ -15,7 +15,19 @@ func TestKubernetesDataSource(t *testing.T) {
 	deplExp := apps.Deployment{}
 	deplExp.SetName("alamotest2118")
 	deplExp.SetNamespace("default")
+	statExp := apps.StatefulSet{}
+	statExp.SetName("alamotest2118s")
+	statExp.SetNamespace("default")
+	deaExp := apps.DaemonSet{}
+	deaExp.SetName("alamotest2118de")
+	deaExp.SetNamespace("default")
 	if err := kube.Tracker().Add(deplExp.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(statExp.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
+	if err := kube.Tracker().Add(deaExp.DeepCopyObject()); err != nil {
 		log.Fatal(err.Error())
 	}
 	/*
@@ -192,6 +204,26 @@ users:
 		So(ds.EmitRemoveRoute(LogRoute{
 			Endpoint: "syslog://example.com:1234",
 			Hostname: "alamotest2118.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
+		So(ds.EmitNewRoute(LogRoute{
+			Endpoint: "syslog://example1.com:1234",
+			Hostname: "alamotest2118s.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
+		So(ds.EmitRemoveRoute(LogRoute{
+			Endpoint: "syslog://example1.com:1234",
+			Hostname: "alamotest2118s.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
+		So(ds.EmitNewRoute(LogRoute{
+			Endpoint: "syslog://example2.com:1234",
+			Hostname: "alamotest2118de.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
+		So(ds.EmitRemoveRoute(LogRoute{
+			Endpoint: "syslog://example2.com:1234",
+			Hostname: "alamotest2118de.default",
 			Tag: "sometag",
 		}), ShouldBeNil)
 	})
