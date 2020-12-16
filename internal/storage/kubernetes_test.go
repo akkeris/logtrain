@@ -12,7 +12,12 @@ import (
 
 func TestKubernetesDataSource(t *testing.T) {
 	kube := fake.NewSimpleClientset()
-
+	deplExp := apps.Deployment{}
+	deplExp.SetName("alamotest2118")
+	deplExp.SetNamespace("default")
+	if err := kube.Tracker().Add(deplExp.DeepCopyObject()); err != nil {
+		log.Fatal(err.Error())
+	}
 	/*
 	 * Do not use the fake client Tracker to emit object changes,
 	 * we must manually call private methods in the data source
@@ -176,6 +181,19 @@ users:
 		case <-time.NewTimer(time.Second * 5).C:
 			log.Fatal("This should not have been called (update #4).")
 		}
+	})
+	Convey("Test emitting routes dont have errors", t, func() {
+		ds.writable = true // for it to be writable.
+		So(ds.EmitNewRoute(LogRoute{
+			Endpoint: "syslog://example.com:1234",
+			Hostname: "alamotest2118.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
+		So(ds.EmitRemoveRoute(LogRoute{
+			Endpoint: "syslog://example.com:1234",
+			Hostname: "alamotest2118.default",
+			Tag: "sometag",
+		}), ShouldBeNil)
 	})
 	Convey("Ensure we can get all routes", t, func() {
 		routes, err := ds.GetAllRoutes()

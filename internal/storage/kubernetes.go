@@ -104,6 +104,9 @@ func (kds *KubernetesDataSource) EmitNewRoute(route LogRoute) error {
 	deployment, err := kds.kube.AppsV1().Deployments(namespace).Get(name, meta.GetOptions{})
 	if err == nil {
 		annotations := deployment.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string, 0)
+		}
 		if annotations[DrainAnnotationKey] == "" {
 			annotations[DrainAnnotationKey] = route.Endpoint
 		} else {
@@ -119,6 +122,9 @@ func (kds *KubernetesDataSource) EmitNewRoute(route LogRoute) error {
 	daemonset, err := kds.kube.AppsV1().DaemonSets(namespace).Get(name, meta.GetOptions{})
 	if err == nil {
 		annotations := daemonset.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string, 0)
+		}
 		if annotations[DrainAnnotationKey] == "" {
 			annotations[DrainAnnotationKey] = route.Endpoint
 		} else {
@@ -134,6 +140,9 @@ func (kds *KubernetesDataSource) EmitNewRoute(route LogRoute) error {
 	statefulset, err := kds.kube.AppsV1().StatefulSets(namespace).Get(name, meta.GetOptions{})
 	if err == nil {
 		annotations := statefulset.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string, 0)
+		}
 		if annotations[DrainAnnotationKey] == "" {
 			annotations[DrainAnnotationKey] = route.Endpoint
 		} else {

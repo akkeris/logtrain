@@ -196,7 +196,6 @@ func TestKubernetesInput(t *testing.T) {
 		case err := <-handler.Errors():
 			log.Fatal(err)
 		}
-
 	})
 	Convey("Ensure we can close the connection", t, func() {
 		os.RemoveAll("/tmp/kubernetes_test")
