@@ -194,6 +194,11 @@ users:
 			log.Fatal("This should not have been called (update #4).")
 		}
 	})
+	Convey("Ensure we can get all routes", t, func() {
+		routes, err := ds.GetAllRoutes()
+		So(err, ShouldBeNil)
+		So(len(routes), ShouldEqual, 0)
+	})
 	Convey("Test emitting routes dont have errors", t, func() {
 		ds.writable = true // for it to be writable.
 		So(ds.EmitNewRoute(LogRoute{
@@ -226,11 +231,6 @@ users:
 			Hostname: "alamotest2118de.default",
 			Tag: "sometag",
 		}), ShouldBeNil)
-	})
-	Convey("Ensure we can get all routes", t, func() {
-		routes, err := ds.GetAllRoutes()
-		So(err, ShouldBeNil)
-		So(len(routes), ShouldEqual, 0)
 	})
 	Convey("Test shutting down", t, func() {
 		So(ds.Close(), ShouldBeNil)
