@@ -196,6 +196,7 @@ func TestKubernetesInput(t *testing.T) {
 		case err := <-handler.Errors():
 			log.Fatal(err)
 		}
+		os.Remove("/tmp/kubernetes_test/alamotest2112-64cd4f4ff7-6bqb8_default_alamotest2112-a54517ce9ceb1e1d87fc41c263a3d7b95fd177a01b9acea61c643727a92306b1.log")
 	})
 	Convey("Ensure we can close the connection", t, func() {
 		os.RemoveAll("/tmp/kubernetes_test")
