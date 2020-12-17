@@ -62,7 +62,7 @@ spec:
           value: "true"
         command:
           - ./logtrain
-        image: akkeris/logtrain:v0.5.3 # TODO add ability to auto-update this on release.
+        image: akkeris/logtrain:v0.5.4 # TODO add ability to auto-update this on release.
         imagePullPolicy: IfNotPresent
         name: logtrain
         ports:
