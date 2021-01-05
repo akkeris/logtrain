@@ -337,7 +337,7 @@ func runWithContext(ctx context.Context) error {
 	// respond to tail requests
 	httpServer.mux.HandleFunc("/tails/", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
-		if req.Method != http.MethodPost {
+		if req.Method != http.MethodPost && req.Method != http.MethodGet {
 			http.NotFound(w, req)
 			return
 		}

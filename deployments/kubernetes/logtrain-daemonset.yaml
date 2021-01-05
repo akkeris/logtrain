@@ -62,7 +62,7 @@ spec:
           value: "true"
         command:
           - ./logtrain
-        image: akkeris/logtrain:v0.5.4 # TODO add ability to auto-update this on release.
+        image: akkeris/logtrain:v0.5.5 # TODO add ability to auto-update this on release.
         imagePullPolicy: IfNotPresent
         name: logtrain
         ports:
@@ -76,7 +76,7 @@ spec:
           protocol: UDP
         resources:
           limits:
-            memory: 128Mi
+            memory: 96Mi
           requests:
             memory: 64Mi
         securityContext:

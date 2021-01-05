@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine
+FROM golang:1.15.6-alpine
 RUN apk update
 RUN apk add openssl ca-certificates
 WORKDIR /go/src/github.com/akkeris/logtrain

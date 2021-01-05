@@ -20,7 +20,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: logtail
-        image: akkeris/logtrain:v0.5.4
+        image: akkeris/logtrain:v0.5.5
         command:
           - ./logtail
         env:
@@ -51,7 +51,7 @@ spec:
           protocol: TCP
         resources:
           limits:
-            memory: 128Mi
+            memory: 96Mi
           requests:
             memory: 64Mi
       securityContext: {}
