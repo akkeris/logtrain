@@ -295,7 +295,6 @@ func (router *Router) writeLoop() {
 									debug.Errorf("[router] Error dailing new drain to %s, for host %s: %s\n", endpoint, packet.Hostname, err.Error())
 									router.drainsFailedToConnect[endpoint] = true
 								} else {
-									debug.Errorf("[router] Successfully created new drain to %s, for host %s\n", endpoint, packet.Hostname)
 									router.mutex.Lock()
 									router.drainByEndpoint[endpoint] = drain
 									router.mutex.Unlock()
@@ -303,6 +302,7 @@ func (router *Router) writeLoop() {
 									case drain.Input <- packet:
 									default:
 									}
+									debug.Debugf("[router] Successfully created new drain to %s, for host %s\n", endpoint, packet.Hostname)
 								}
 							}
 						}

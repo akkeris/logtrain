@@ -401,16 +401,20 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 					} else {
 						debug.Debugf("[kubernetes/input] Watcher loop could not find follower %s to remove!\n", event.Name)
 					}
-					return
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok || handler.closing {
-					return
-				}
-				debug.Debugf("[kubernetes/input] Watcher loop encountered an error: %s\n", err.Error())
-				select {
-				case handler.Errors() <- err:
-				default:
+					if handler.closing {
+						debug.Debugf("[kubernetes/input] handler is closing, returning...\n")
+						return
+					}
+					debug.Debugf("[kubernetes/input] unknown error in watcher loop, ignoring...\n", err.Error())
+				} else {
+					debug.Debugf("[kubernetes/input] Watcher loop encountered an error: %s\n", err.Error())
+					select {
+					case handler.Errors() <- err:
+					default:
+					}
 				}
 			}
 		}
