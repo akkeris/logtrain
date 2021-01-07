@@ -244,6 +244,9 @@ func (kds *KubernetesDataSource) addRoute(host string, drain string) {
 		Endpoint: strings.TrimSpace(drain),
 		Hostname: host,
 	}
+	if kds.closed {
+		return
+	}
 	kds.routes = append(kds.routes, route)
 	kds.add <- route
 }
@@ -259,6 +262,9 @@ func (kds *KubernetesDataSource) removeRoute(host string, drain string) {
 		if route.Endpoint != r.Endpoint && route.Hostname != r.Hostname {
 			newRoutes = append(newRoutes, r)
 		}
+	}
+	if kds.closed {
+		return
 	}
 	kds.routes = newRoutes
 	kds.remove <- route
