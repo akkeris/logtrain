@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/akkeris/logtrain/internal/debug"
 	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
 	authorization "k8s.io/api/authorization/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -358,6 +359,33 @@ func (kds *KubernetesDataSource) Dial() error {
 	// more resources to keep track of than deployments+statefulsets+daemonsets. Profiles caused
 	// this to go from 100k
 
+	// Watch pods
+	listWatchPods := cache.NewListWatchFromClient(rest, "pods", "", fields.Everything())
+	listWatchPods.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
+		return kds.kube.CoreV1().Pods(meta.NamespaceAll).List(options)
+	}
+	listWatchPods.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
+		return kds.kube.CoreV1().Pods(meta.NamespaceAll).Watch(meta.ListOptions{})
+	}
+	_, controllerPods := cache.NewInformer(
+		listWatchPods,
+		&core.Pod{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    kds.addRouteFromObj,
+			DeleteFunc: kds.removeRouteFromObj,
+			UpdateFunc: kds.reviewUpdateFromObj,
+		},
+	)
+	pods, err := kds.kube.CoreV1().Pods(meta.NamespaceAll).List(meta.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, item := range pods.Items {
+		kds.addRouteFromObj(item.DeepCopyObject())
+	}
+
+
 	// Watch deployments
 	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
 	listWatchDeployments.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
@@ -436,6 +464,7 @@ func (kds *KubernetesDataSource) Dial() error {
 		kds.addRouteFromObj(item.DeepCopyObject())
 	}
 
+	go controllerPods.Run(kds.stop)
 	go controllerDeployments.Run(kds.stop)
 	go controllerDaemonSets.Run(kds.stop)
 	go controllerStatefulSets.Run(kds.stop)

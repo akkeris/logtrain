@@ -37,6 +37,13 @@ Setting insecure=true ignores certificate failures
   * `syslog+tcp://host:port`
   * `syslog+udp://` (aliases, `syslog://`)
 
+## Persistent
+
+  * `persistent://key`
+
+Persistent storage will fail if persistent storage is not configured (see below). The key may be any value up to 128 characters.
+The persistent key may only be used on finite resources such as Pods, and cannot be set on deployments, statefulsets, etc.
+
 ## Using Logtrain API
 
 ***TODO***
@@ -100,6 +107,17 @@ Whether to watch kubernetes deployments, statefulsets and daemonsets for annotat
 where logs should be forwarded to.
 
   * `KUBERNETES_DATASOURCE` - set to `true`
+
+
+### Persistent Log Storage
+
+Persistent log storage can be done via a postgres database.  Set `PERSISTENT_DATABASE_URL` to specify the database to store logs in.
+Logs stored can be retrieved directly through the database in the table `logs.data` with the key being `logs.id` column. In addition,
+logs persisted can be retrieved via the `/logs/:key`.
+
+  * `PERSISTENT` - set to `true`
+  * `PERSISTENT_DATABASE_URL` - A postgres database to store logs in the format of postgres://user:pass@host:5432/dbname.
+  * `PERSISTENT_PATH` - The path on the http end point to respond to log requests, defaults to `/logs/`
 
 ### Kubernetes
 

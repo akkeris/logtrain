@@ -9,6 +9,7 @@ import (
 	syslogtcp "github.com/akkeris/logtrain/pkg/output/syslogtcp"
 	syslogtls "github.com/akkeris/logtrain/pkg/output/syslogtls"
 	syslogudp "github.com/akkeris/logtrain/pkg/output/syslogudp"
+	persistent "github.com/akkeris/logtrain/pkg/output/persistent"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
@@ -47,6 +48,8 @@ func Create(endpoint string, errorsCh chan<- error) (Output, error) {
 		return syslogudp.Create(endpoint, errorsCh)
 	} else if memory.Test(endpoint) == true {
 		return memory.Create(endpoint, errorsCh)
+	} else if persistent.Test(endpoint) == true {
+		return persistent.Create(endpoint, errorsCh)
 	}
 	return nil, errors.New("Unrecognized endpoint " + endpoint)
 }

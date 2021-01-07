@@ -107,10 +107,10 @@ func (router *Router) Metrics() map[string]Metric {
 	router.mutex.Lock()
 	defer router.mutex.Unlock()
 	metrics := make(map[string]Metric, 0)
-	for host, endpoints := range router.endpointsByHost {
+	for _, endpoints := range router.endpointsByHost {
 		for _, endpoint := range endpoints {
 			if drain, ok := router.drainByEndpoint[endpoint]; ok {
-				metrics[host+"->"+drain.Endpoint] = Metric{
+				metrics[drain.Endpoint] = Metric{
 					MaxConnections: drain.MaxConnections(),
 					Connections:    drain.OpenConnections(),
 					Pressure:       drain.Pressure(),

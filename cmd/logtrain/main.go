@@ -13,6 +13,7 @@ import (
 	"github.com/akkeris/logtrain/pkg/input/syslogtcp"
 	"github.com/akkeris/logtrain/pkg/input/syslogtls"
 	"github.com/akkeris/logtrain/pkg/input/syslogudp"
+	persistent "github.com/akkeris/logtrain/pkg/output/persistent"
 	"github.com/akkeris/logtrain/pkg/router"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,6 +24,7 @@ import (
 	"os/signal"
 	rpprof "runtime/pprof"
 	"syscall"
+	"strings"
 	"time"
 )
 
@@ -260,6 +262,25 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		}
 		addedInput = true
 		log.Printf("[main] Added kubernetes file watcher\n")
+	}
+
+	if os.Getenv("PERSISTENT") == "true" {
+		server.mux.HandleFunc(getOsOrDefault("PERSISTENT_PATH", "/logs/"), func (response http.ResponseWriter, req *http.Request) {
+			segments := strings.Split(req.URL.Path, "/")
+			if segments[2] == "" {
+				http.NotFound(response, req)
+				return
+			}
+			defer req.Body.Close()
+			data, err := persistent.Get(segments[2])
+			if err != nil {
+				http.NotFound(response, req)
+				debug.Errorf("[main] Error: Unable to get persistent logs [%s]: %s\n", segments[2], err.Error())
+				return
+			}
+			response.WriteHeader(http.StatusOK)
+			response.Write([]byte(*data))
+		})
 	}
 
 	if !addedInput {
