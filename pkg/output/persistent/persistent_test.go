@@ -1,21 +1,21 @@
 package persistent
 
 import (
+	"github.com/google/uuid"
+	_ "github.com/mattn/go-sqlite3"
 	. "github.com/smartystreets/goconvey/convey"
 	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
-	"github.com/google/uuid"
 	"log"
+	"os"
 	"testing"
 	"time"
-	"os"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestPersistentOutput(t *testing.T) {
 	// override postgres driver for sqllite for tests.
 	createStatement = "create table logs (id varchar(128) primary key not null, data text not null default '')"
 	sqlDriver = "sqlite3"
-	if err := os.Setenv("PERSISTENT_DATABASE_URL","file::memory:"); err != nil {
+	if err := os.Setenv("PERSISTENT_DATABASE_URL", "file::memory:"); err != nil {
 		panic(err)
 	}
 	errorCh := make(chan error, 1)
@@ -23,7 +23,7 @@ func TestPersistentOutput(t *testing.T) {
 	u := uuid.New()
 	key := "keybyname" + u.String()
 
-	output, err := Create("persistent://" + key, errorCh)
+	output, err := Create("persistent://"+key, errorCh)
 
 	Convey("Ensure persistent output is created", t, func() {
 		So(err, ShouldBeNil)
@@ -54,7 +54,7 @@ func TestPersistentOutput(t *testing.T) {
 		data, err := Get(key, output.db)
 		So(err, ShouldBeNil)
 
-		So(*data, ShouldEqual, p.Generate(maxLogSize) + "\n")
+		So(*data, ShouldEqual, p.Generate(maxLogSize)+"\n")
 	})
 	Convey("Ensure we can close the end point...", t, func() {
 		So(output.Close(), ShouldBeNil)

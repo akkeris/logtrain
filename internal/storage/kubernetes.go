@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/akkeris/logtrain/internal/debug"
 	apps "k8s.io/api/apps/v1"
-	core "k8s.io/api/core/v1"
 	authorization "k8s.io/api/authorization/v1"
+	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -391,7 +391,6 @@ func (kds *KubernetesDataSource) Dial() error {
 		kds.addRouteFromObj(item.DeepCopyObject())
 	}
 
-
 	// Watch deployments
 	listWatchDeployments := cache.NewListWatchFromClient(rest, "deployments", "", fields.Everything())
 	listWatchDeployments.ListFunc = func(options meta.ListOptions) (runtime.Object, error) {
@@ -450,7 +449,7 @@ func (kds *KubernetesDataSource) Dial() error {
 		return kds.kube.AppsV1().StatefulSets(meta.NamespaceAll).List(options)
 	}
 	listWatchStatefulSets.WatchFunc = func(options meta.ListOptions) (watch.Interface, error) {
-		return kds.	kube.AppsV1().StatefulSets(meta.NamespaceAll).Watch(meta.ListOptions{})
+		return kds.kube.AppsV1().StatefulSets(meta.NamespaceAll).Watch(meta.ListOptions{})
 	}
 	_, controllerStatefulSets := cache.NewInformer(
 		listWatchStatefulSets,

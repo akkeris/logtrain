@@ -23,6 +23,7 @@ type Syslog struct {
 }
 
 const maxLogSize int = 99990
+
 var schemas = []string{"persistent://"}
 
 var createStatement = `
@@ -40,7 +41,6 @@ var selectStatement = `select data from logs where id = $1`
 var insertStatement = `insert into logs (id, data) values ($1, '')`
 var updateStatement = `update logs set data = $1 where id = $2`
 var sqlDriver = "postgres"
-
 
 // Get gets logs by the specified key passed in
 func Get(key string, db *sql.DB) (*string, error) {
@@ -93,7 +93,7 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 	if id == "" {
 		return nil, errors.New("invalid key")
 	}
-	
+
 	if _, err := db.Exec(insertStatement, id); err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (log *Syslog) loop() {
 			}
 		case <-timer.C:
 			if payload != "" {
-				
+
 				if _, err := log.db.Exec(updateStatement, payload, log.id); err != nil {
 					debug.Errorf("[persistent] An error occured while trying to update persistent logs in database %s: %s\n", log.id, err.Error())
 					errors++

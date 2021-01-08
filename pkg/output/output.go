@@ -5,11 +5,11 @@ import (
 	elasticsearch "github.com/akkeris/logtrain/pkg/output/elasticsearch"
 	http "github.com/akkeris/logtrain/pkg/output/http"
 	memory "github.com/akkeris/logtrain/pkg/output/memory"
+	persistent "github.com/akkeris/logtrain/pkg/output/persistent"
 	sysloghttp "github.com/akkeris/logtrain/pkg/output/sysloghttp"
 	syslogtcp "github.com/akkeris/logtrain/pkg/output/syslogtcp"
 	syslogtls "github.com/akkeris/logtrain/pkg/output/syslogtls"
 	syslogudp "github.com/akkeris/logtrain/pkg/output/syslogudp"
-	persistent "github.com/akkeris/logtrain/pkg/output/persistent"
 	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 

@@ -204,32 +204,32 @@ users:
 		So(ds.EmitNewRoute(LogRoute{
 			Endpoint: "syslog://example.com:1234",
 			Hostname: "alamotest2118.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 		So(ds.EmitRemoveRoute(LogRoute{
 			Endpoint: "syslog://example.com:1234",
 			Hostname: "alamotest2118.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 		So(ds.EmitNewRoute(LogRoute{
 			Endpoint: "syslog://example1.com:1234",
 			Hostname: "alamotest2118s.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 		So(ds.EmitRemoveRoute(LogRoute{
 			Endpoint: "syslog://example1.com:1234",
 			Hostname: "alamotest2118s.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 		So(ds.EmitNewRoute(LogRoute{
 			Endpoint: "syslog://example2.com:1234",
 			Hostname: "alamotest2118de.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 		So(ds.EmitRemoveRoute(LogRoute{
 			Endpoint: "syslog://example2.com:1234",
 			Hostname: "alamotest2118de.default",
-			Tag: "sometag",
+			Tag:      "sometag",
 		}), ShouldBeNil)
 	})
 	Convey("Test shutting down", t, func() {
