@@ -2,8 +2,8 @@ package elasticsearch
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"github.com/trevorlinton/remote_syslog2/syslog"
 	"io/ioutil"
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// For more information on elastic search bulk API, see: 
+// For more information on elastic search bulk API, see:
 // https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
 // Syslog creates a new syslog output to elasticsearch
@@ -42,19 +42,19 @@ const (
 
 type elasticSearchHeaderCreate struct {
 	Source string `json:"_source"`
-	Id string `json:"_id"`
-	Index string `json:"_index"`
+	Id     string `json:"_id"`
+	Index  string `json:"_index"`
 }
 type elasticSearchHeader struct {
 	Create elasticSearchHeaderCreate `json:"create"`
 }
 type elasticSearchBody struct {
 	Timestamp string `json:"@timestamp"`
-	Hostname string `json:"hostname"`
-	Tag string `json:"tag"`
-	Message string `json:"message"`
-	Severity int `json:"severity"`
-	Facility int `json:"facility"`
+	Hostname  string `json:"hostname"`
+	Tag       string `json:"tag"`
+	Message   string `json:"message"`
+	Severity  int    `json:"severity"`
+	Facility  int    `json:"facility"`
 }
 
 var syslogSchemas = []string{"elasticsearch://", "es://", "elasticsearch+https://", "elasticsearch+http://", "es+https://", "es+http://"}
@@ -176,22 +176,22 @@ func (log *Syslog) loop() {
 			if index == "" {
 				index = p.Hostname
 			}
-			
+
 			header := elasticSearchHeader{
 				Create: elasticSearchHeaderCreate{
 					Source: "logtrain",
-					Id: strconv.Itoa(int(time.Now().UnixNano())),
-					Index: index,
+					Id:     strconv.Itoa(int(time.Now().UnixNano())),
+					Index:  index,
 				},
 			}
 
 			body := elasticSearchBody{
 				Timestamp: p.Time.Format(syslog.Rfc5424time),
-				Hostname: p.Hostname,
-				Tag: p.Tag,
-				Message: p.Message,
-				Severity: int(p.Severity),
-				Facility: int(p.Facility),
+				Hostname:  p.Hostname,
+				Tag:       p.Tag,
+				Message:   p.Message,
+				Severity:  int(p.Severity),
+				Facility:  int(p.Facility),
 			}
 
 			if h, err := json.Marshal(header); err == nil {

@@ -36,4 +36,5 @@ require (
 	k8s.io/client-go v0.17.0
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/utils v0.0.0-20201027101359-01387209bb0d // indirect
+	modernc.org/sqlite v1.7.5
 )

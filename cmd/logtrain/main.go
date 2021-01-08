@@ -13,6 +13,7 @@ import (
 	"github.com/akkeris/logtrain/pkg/input/syslogtcp"
 	"github.com/akkeris/logtrain/pkg/input/syslogtls"
 	"github.com/akkeris/logtrain/pkg/input/syslogudp"
+	persistent "github.com/akkeris/logtrain/pkg/output/persistent"
 	"github.com/akkeris/logtrain/pkg/router"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	rpprof "runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -34,29 +36,29 @@ var options struct {
 
 var (
 	syslogConnections = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:       "logtrain_connections",
-		Help:       "Amount of outbound syslog connections.",
-		Buckets: 	prometheus.LinearBuckets(0, 5, 10),
+		Name:    "logtrain_connections",
+		Help:    "Amount of outbound syslog connections.",
+		Buckets: prometheus.LinearBuckets(0, 5, 10),
 	}, []string{"syslog"})
 	syslogPressure = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:       "logtrain_pressure",
-		Help:       "The percentage of buffers that are full waiting to be sent.",
-		Buckets: 	prometheus.LinearBuckets(0, 0.1, 10),
+		Name:    "logtrain_pressure",
+		Help:    "The percentage of buffers that are full waiting to be sent.",
+		Buckets: prometheus.LinearBuckets(0, 0.1, 10),
 	}, []string{"syslog"})
 	syslogSent = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:       "logtrain_packets_sent",
-		Help:       "The amount of packets sent via a syslog (successful or not).",
-		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+		Name:    "logtrain_packets_sent",
+		Help:    "The amount of packets sent via a syslog (successful or not).",
+		Buckets: prometheus.LinearBuckets(0, 100, 100),
 	}, []string{"syslog"})
 	syslogErrors = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:       "logtrain_errors",
-		Help:       "The amount of packets that could not be sent.",
-		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+		Name:    "logtrain_errors",
+		Help:    "The amount of packets that could not be sent.",
+		Buckets: prometheus.LinearBuckets(0, 100, 100),
 	}, []string{"syslog"})
 	syslogDeadPackets = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:       "logtrain_deadpackets",
-		Help:       "The amount of packets received with no route.",
-		Buckets: 	prometheus.LinearBuckets(0, 100, 100),
+		Name:    "logtrain_deadpackets",
+		Help:    "The amount of packets received with no route.",
+		Buckets: prometheus.LinearBuckets(0, 100, 100),
 	})
 )
 
@@ -260,6 +262,25 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		}
 		addedInput = true
 		log.Printf("[main] Added kubernetes file watcher\n")
+	}
+
+	if os.Getenv("PERSISTENT") == "true" {
+		server.mux.HandleFunc(getOsOrDefault("PERSISTENT_PATH", "/logs/"), func(response http.ResponseWriter, req *http.Request) {
+			segments := strings.Split(req.URL.Path, "/")
+			if segments[2] == "" {
+				http.NotFound(response, req)
+				return
+			}
+			defer req.Body.Close()
+			data, err := persistent.Get(segments[2], nil)
+			if err != nil {
+				http.NotFound(response, req)
+				debug.Errorf("[main] Error: Unable to get persistent logs [%s]: %s\n", segments[2], err.Error())
+				return
+			}
+			response.WriteHeader(http.StatusOK)
+			response.Write([]byte(*data))
+		})
 	}
 
 	if !addedInput {
