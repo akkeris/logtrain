@@ -144,7 +144,6 @@ func (log *Syslog) loop() {
 			}
 		case <-timer.C:
 			if payload != "" {
-
 				if _, err := log.db.Exec(updateStatement, payload, log.id); err != nil {
 					debug.Errorf("[persistent] An error occured while trying to update persistent logs in database %s: %s\n", log.id, err.Error())
 					errors++
