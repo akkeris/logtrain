@@ -134,7 +134,7 @@ func (log *Syslog) Packets() chan syslog.Packet {
 
 func (log *Syslog) loop() {
 	timer := time.NewTicker(time.Second)
-	var payload string = ""
+	var payload string
 	var errors = 0
 	for {
 		select {
