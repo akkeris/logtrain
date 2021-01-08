@@ -121,6 +121,9 @@ func deriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts 
 }
 
 func akkerisGetTag(parts []string) string {
+	if len(parts) < 2 {
+		return ""
+	}
 	podId := strings.Join(parts[len(parts)-2:], "-")
 	appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
 	if len(appAndDyno) < 2 {
