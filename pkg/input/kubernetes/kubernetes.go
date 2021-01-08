@@ -97,6 +97,13 @@ func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, e
 func deriveHostnameFromPod(podName string, podNamespace string, useAkkerisHosts bool) *hostnameAndTag {
 	parts := strings.Split(podName, "-")
 	if useAkkerisHosts {
+		if len(parts) < 2 {
+			// this doesn't fit a pod or app that akkeris would create, panic...
+			return &hostnameAndTag{
+				Hostname: podName,
+				Tag:      "",
+			}
+		}
 		podId := strings.Join(parts[len(parts)-2:], "-")
 		appAndDyno := strings.SplitN(strings.Join(parts[:len(parts)-2], "-"), "--", 2)
 		if len(appAndDyno) < 2 {

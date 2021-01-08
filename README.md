@@ -108,7 +108,6 @@ where logs should be forwarded to.
 
   * `KUBERNETES_DATASOURCE` - set to `true`
 
-
 ### Persistent Log Storage
 
 Persistent log storage can be done via a postgres database.  Set `PERSISTENT_DATABASE_URL` to specify the database to store logs in.
