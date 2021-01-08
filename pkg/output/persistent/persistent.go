@@ -32,7 +32,7 @@ $do$
 begin
 	create table if not exists logs (
 		id varchar(128) primary key not null,
-		data text not null default '', 
+		data text not null default ''
 	);
 end
 $do$
@@ -83,18 +83,22 @@ func Create(endpoint string, errorsCh chan<- error) (*Syslog, error) {
 		return nil, err
 	}
 	if _, err := db.Exec(createStatement); err != nil {
+		db.Close()
 		return nil, err
 	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
+		db.Close()
 		return nil, err
 	}
 	id := u.Host
 	if id == "" {
+		db.Close()
 		return nil, errors.New("invalid key")
 	}
 
 	if _, err := db.Exec(insertStatement, id); err != nil {
+		db.Close()
 		return nil, err
 	}
 	return &Syslog{
