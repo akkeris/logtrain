@@ -39,7 +39,7 @@ $do$
 `
 var selectStatement = `select data from logs where id = $1`
 var insertStatement = `insert into logs (id, data) values ($1, '')`
-var updateStatement = `update logs set data = $1 where id = $2`
+var updateStatement = `update logs set data = (data || $1) where id = $2`
 var sqlDriver = "postgres"
 
 // Get gets logs by the specified key passed in
