@@ -272,7 +272,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 				return
 			}
 			defer req.Body.Close()
-			data, err := persistent.Get(segments[2])
+			data, err := persistent.Get(segments[2], nil)
 			if err != nil {
 				http.NotFound(response, req)
 				debug.Errorf("[main] Error: Unable to get persistent logs [%s]: %s\n", segments[2], err.Error())
