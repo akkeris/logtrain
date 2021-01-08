@@ -27,8 +27,9 @@ func TestEndpoint(endpoint string) error {
 		syslogudp.Test(endpoint) == false &&
 		sysloghttp.Test(endpoint) == false &&
 		memory.Test(endpoint) == false &&
-		http.Test(endpoint) == false {
-		return errors.New("Unrecognized schema type")
+		http.Test(endpoint) == false && 
+		persistent.Test(endpoint) == false {
+		return errors.New("unrecognized schema type")
 	}
 	return nil
 }
