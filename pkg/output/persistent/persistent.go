@@ -45,7 +45,7 @@ var sqlDriver = "postgres"
 // Get gets logs by the specified key passed in
 func Get(key string, db *sql.DB) (*string, error) {
 	if db == nil {
-		var err error = nil
+		var err error
 		db, err = sql.Open(sqlDriver, os.Getenv("PERSISTENT_DATABASE_URL")) // TODO: this should be passed in or better yet receive a storage object..
 		if err != nil {
 			return nil, err
@@ -53,7 +53,7 @@ func Get(key string, db *sql.DB) (*string, error) {
 		defer db.Close()
 	}
 
-	var result = ""
+	var result string
 	if err := db.QueryRow(selectStatement, key).Scan(&result); err != nil {
 		return nil, err
 	}
