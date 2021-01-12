@@ -44,6 +44,12 @@ spec:
           value: "true"
         - name: DEBUG
           value: "true"
+        - name: LOGTAIL_HOST_SUFFIX
+          valueFrom:
+            configMapKeyRef:
+              name: logtail
+              key: LOGTAIL_HOST_SUFFIX
+              optional: true
         ports:
         - containerPort: 9000
           protocol: TCP
