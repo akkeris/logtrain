@@ -155,7 +155,7 @@ func (s *EnvoyAlsServer) Errors() chan error {
 // Dial connects the handler
 func (s *EnvoyAlsServer) Dial() error {
 	if s.server != nil {
-		return errors.New("Dial may only be called once.")
+		return errors.New("dial may only be called once")
 	}
 	s.server = grpc.NewServer()
 	v2.RegisterAccessLogServiceServer(s.server, s)
