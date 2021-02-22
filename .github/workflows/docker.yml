@@ -12,13 +12,13 @@ jobs:
       - name: Prepare
         id: prep
         run: |
-          DOCKER_IMAGE=${{ secrets.DockerUser }}/${GITHUB_REPOSITORY#*/}
+          DOCKER_IMAGE=akkeris/logtrain
           VERSION=latest
           SHORTREF=${GITHUB_SHA::8}
 
           # If this is git tag, use the tag name as a docker tag
           if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
+            VERSION=${GITHUB_REF#refs/tags/}
           fi
           TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
 
