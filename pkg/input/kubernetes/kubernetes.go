@@ -56,6 +56,7 @@ type Kubernetes struct {
 	packets        chan syslog.Packet
 	path           string
 	watcher        *fsnotify.Watcher
+	json 		   bool
 }
 
 func getTopLevelObject(kube kubernetes.Interface, obj api.Object) (api.Object, error) {
@@ -275,7 +276,37 @@ func kubeDetailsFromFileName(file string) (*kubeDetails, error) {
 	return nil, errors.New("invalid filename, no match given")
 }
 
+func parseLogLine(data []byte, v interface{}) error {
+	
+	ds := strings.SplitN(string(data), " ", 3)
+	if len(ds) < 2 {
+		return errors.New("Unable to parse log line.")
+	}
+	line, ok := v.(*kubeLine)
+	if !ok {
+		return errors.New("invalid arguement provided for data structure")
+	}
+	line.Time = ds[0]
+	if len(line.Time) != 30 {
+		return errors.New("invalid time passed in")
+	}
+	line.Stream = ds[1]
+	if len(line.Stream) != 6 {
+		return errors.New("invalid stream passed in")
+	}
+	if len(ds) == 2 {
+		line.Log = ""
+	} else {
+		line.Log = ds[2]
+	}
+	return nil
+}
+
 func (handler *Kubernetes) parse(file string, fw *fileWatcher, hostAndTag *hostnameAndTag) {
+	var parser = parseLogLine
+	if handler.json == true {
+		parser = json.Unmarshal
+	}
 	debug.Infof("[kubernetes/input] Watching: %s (%s/%s)\n", file, hostAndTag.Hostname, hostAndTag.Tag)
 	for {
 		// TODO: investigate if this is better served by using a range instead of select such as in:
@@ -284,7 +315,7 @@ func (handler *Kubernetes) parse(file string, fw *fileWatcher, hostAndTag *hostn
 		case line, ok := <-fw.follower.Lines:
 			if ok && line.Err == nil {
 				var data kubeLine
-				if err := json.Unmarshal([]byte(line.Text), &data); err != nil {
+				if err := parser([]byte(line.Text), &data); err != nil {
 					// track errors with the lines, but don't report anything.
 					// TODO: should we do more? we shouldnt report this on
 					// the kubernetes error handler as one corrupted file could make
@@ -432,7 +463,7 @@ func (handler *Kubernetes) watcherEventLoop() (*fsnotify.Watcher, error) {
 	return watcher, nil
 }
 
-func Create(logpath string, kube kubernetes.Interface) (*Kubernetes, error) {
+func Create(logpath string, kube kubernetes.Interface, containerd bool) (*Kubernetes, error) {
 	if logpath == "" {
 		logpath = "/var/log/containers"
 	}
@@ -447,5 +478,6 @@ func Create(logpath string, kube kubernetes.Interface) (*Kubernetes, error) {
 		followers:      make(map[string]fileWatcher),
 		closing:        false,
 		followersMutex: sync.Mutex{},
+		json:			containerd == false,
 	}, nil
 }
