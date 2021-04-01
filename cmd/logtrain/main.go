@@ -250,7 +250,7 @@ func addInputsToRouter(router *router.Router, server *httpServer) error {
 		if err != nil {
 			return err
 		}
-		in, err := kube.Create(os.Getenv("KUBERNETES_LOG_PATH"), k8sClient)
+		in, err := kube.Create(os.Getenv("KUBERNETES_LOG_PATH"), k8sClient, os.Getenv("KUBERNETES_LOG_CONTAINERD") == "true")
 		if err != nil {
 			return err
 		}

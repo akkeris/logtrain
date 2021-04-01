@@ -24,6 +24,50 @@ func write(f *os.File, content string) error {
 	return nil
 }
 
+func TestLogLineParser(t *testing.T) {
+	Convey("Ensure the happy path log lines parse correctly", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte("2006-01-02T15:04:05.000000000Z stderr hey hey hey"), &line)
+		So(err, ShouldBeNil)
+		So(line.Time, ShouldEqual, "2006-01-02T15:04:05.000000000Z")
+		So(line.Stream, ShouldEqual, "stderr")
+		So(line.Log, ShouldEqual, "hey hey hey")
+	})
+
+	Convey("Ensure the empty log line is still accepted", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte("2006-01-02T15:04:05.000000000Z stderr"), &line)
+		So(err, ShouldBeNil)
+		So(line.Time, ShouldEqual, "2006-01-02T15:04:05.000000000Z")
+		So(line.Stream, ShouldEqual, "stderr")
+		So(line.Log, ShouldEqual, "")
+	})
+
+	Convey("Malformed entry, Invalid length, too long", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte("2006-01-02T15:04:05.000000000Z foosasdfasd"), &line)
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Malformed entry, Invalid length, too short", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte("2006-01-02T15:04:05.000000000Z foos"), &line)
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Malformed entry, Invalid length, non existant", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte("2006-01-02T15:04:05.000000000Z"), &line)
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Malformed entry, Invalid length, empty", t, func() {
+		line := kubeLine{}
+		err := parseLogLine([]byte(""), &line)
+		So(err, ShouldNotBeNil)
+	})
+}
+
 func TestKubernetesInput(t *testing.T) {
 	kube := fake.NewSimpleClientset()
 	var boolTrue = true
@@ -88,7 +132,7 @@ func TestKubernetesInput(t *testing.T) {
 	pod.SetName("alamotest2112-64cd4f4ff7-6bqb8")
 	pod.SetNamespace("default")
 	pod.SetOwnerReferences([]meta.OwnerReference{meta.OwnerReference{Kind: "replicaset", Name: "alamotest2112-64cd4f4ff7", Controller: &boolTrue}})
-	handler, err := Create("/tmp/kubernetes_test", fake.NewSimpleClientset(pod.DeepCopyObject(), replicaset.DeepCopyObject(), deployment.DeepCopyObject()))
+	handler, err := Create("/tmp/kubernetes_test", fake.NewSimpleClientset(pod.DeepCopyObject(), replicaset.DeepCopyObject(), deployment.DeepCopyObject()), false)
 	if err != nil {
 		log.Fatal(err)
 	}

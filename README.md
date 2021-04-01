@@ -62,6 +62,8 @@ kubectl apply -f ./deployments/kubernetes/logtrain-service.yaml
 kubectl apply -f ./deployments/kubernetes/logtrain-daemonset.yaml
 ```
 
+If you're using containerd rather than docker be sure to set `KUBERNETES_LOG_CONTAINERD` to `true` to parse containerd formatted logs.
+
 ### Adding drains in Kubernetes
 
 Once deployed you can use the following annotations on deployments, daemonsets or statefulsets to forward logs.
@@ -124,6 +126,7 @@ Whether to watch the `KUBERNETES_LOG_PATH` directory for pod logs and forward th
 
   * `KUBERNETES` - set to `true`
   * `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs. Defaults to `/var/log/containers`
+  * `KUBERNETES_LOG_CONTAINERD` - optional, default is `false` whether to use containerd rather than docker-json logfiles.
 
 ### Envoy/Istio
 
