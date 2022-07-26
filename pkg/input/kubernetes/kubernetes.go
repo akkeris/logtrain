@@ -3,23 +3,26 @@ package kubernetes
 import (
 	"encoding/json"
 	"errors"
-	"github.com/akkeris/logtrain/internal/debug"
-	"github.com/akkeris/logtrain/internal/storage"
-	"github.com/fsnotify/fsnotify"
-	"github.com/influxdata/tail"
-	"github.com/trevorlinton/remote_syslog2/syslog"
 	"io"
-	api "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/akkeris/logtrain/internal/debug"
+	"github.com/akkeris/logtrain/internal/storage"
+	"github.com/fsnotify/fsnotify"
+	"github.com/influxdata/tail"
+	"github.com/trevorlinton/remote_syslog2/syslog"
+	api "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const kubeTime = "2006-01-02T15:04:05.000000000Z"
+
+var excludeNamespaces string = os.Getenv("EXCLUDE_NAMESPACES")
 
 type kubeLine struct {
 	Log    string `json:"log"`
@@ -167,6 +170,18 @@ func getHostnameAndTagFromPod(kube kubernetes.Interface, obj api.Object, useAkke
 	if useAkkerisHosts == true {
 		appName, ok1 := top.GetLabels()[storage.AkkerisAppLabelKey]
 		dynoType, ok2 := top.GetLabels()[storage.AkkerisDynoTypeLabelKey]
+
+		// Use pod name for hostname if it's a oneoff, it won't be auto generated
+		_, ok3 := top.GetLabels()[storage.AkkerisOneOffKey]
+
+		if ok3 {
+			podId := strings.Join(parts[len(parts)-2:], "-")
+			return &hostnameAndTag{
+				Hostname: obj.GetName() + "-" + obj.GetNamespace(),
+				Tag:      dynoType + "." + podId,
+			}
+		}
+
 		if ok1 && ok2 {
 			podId := strings.Join(parts[len(parts)-2:], "-")
 			return &hostnameAndTag{
@@ -349,6 +364,29 @@ func (handler *Kubernetes) add(file string, ioSeek int) error {
 	} else {
 		hostAndTag = getHostnameAndTagFromPod(handler.kube, pod, useAkkerisHosts)
 	}
+
+	// Exclude namespaces
+	ns := pod.ObjectMeta.Namespace
+	es := strings.Split(excludeNamespaces, ",")
+	for i := range es {
+		if ns == es[i] {
+			return nil
+		}
+	}
+
+	// Only watch Akkeris pods
+	if os.Getenv("ONLY_AKKERIS") != "" && strings.ToLower(os.Getenv("ONLY_AKKERIS")) == "true" {
+		isAkkeris := false
+		for key := range pod.ObjectMeta.Labels {
+			if strings.HasPrefix(key, "akkeris.io") {
+				isAkkeris = true
+			}
+		}
+		if isAkkeris == false {
+			return nil
+		}
+	}
+
 	proc, err := tail.TailFile(file, config)
 	if err != nil {
 		handler.Errors() <- err

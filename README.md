@@ -124,6 +124,7 @@ Whether to watch the `KUBERNETES_LOG_PATH` directory for pod logs and forward th
 
   * `KUBERNETES` - set to `true`
   * `KUBERNETES_LOG_PATH` - optional, the path on each node to look for logs. Defaults to `/var/log/containers`
+  * `EXCLUDE_NAMESPACES` - optional, a comma separated list of namespaces to ignore
 
 ### Envoy/Istio
 
@@ -170,6 +171,7 @@ Note, the port is inherited from `HTTP_PORT`.
 ### Akkeris Formatting (optional)
 
   * `AKKERIS=true` - for Akkeris formatting of output
+  * `ONLY_AKKERIS=true` - Optional, ignore any other Kubernetes pods
 
 ## Performance
 
