@@ -16,5 +16,6 @@ FROM alpine:latest
 
 WORKDIR /logtrain
 COPY --from=builder /go/src/github.com/akkeris/logtrain/logtrain ./logtrain
+COPY --from=builder /go/src/github.com/akkeris/logtrain/logtail ./logtail
 
 CMD ./logtrain
