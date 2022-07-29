@@ -1,13 +1,14 @@
 package http
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
-	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"testing"
 	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
+	syslog2 "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
 type TestHttpServer struct {
@@ -46,6 +47,8 @@ func TestJSONHttpOutput(t *testing.T) {
 
 	syslog, err := Create("http://localhost:8084/tests", errorCh)
 	go s.ListenAndServe()
+	// Wait a bit for the server to come online
+	time.Sleep(3 * time.Second)
 	Convey("Ensure syslog is created", t, func() {
 		So(err, ShouldBeNil)
 	})
