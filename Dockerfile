@@ -12,7 +12,7 @@ RUN go get -u golang.org/x/sys/...
 RUN go build -o logtrain github.com/akkeris/logtrain/cmd/logtrain
 RUN go build -o logtail github.com/akkeris/logtrain/cmd/logtail
 
-FROM alpine:latest
+FROM alpine:3.16.1
 
 WORKDIR /logtrain
 COPY --from=builder /go/src/github.com/akkeris/logtrain/logtrain ./logtrain

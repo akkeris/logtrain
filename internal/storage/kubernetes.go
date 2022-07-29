@@ -25,6 +25,8 @@ const AkkerisDynoTypeLabelKey = "akkeris.io/dyno-type"
 const DrainAnnotationKey = "logtrain.akkeris.io/drains"
 const HostnameAnnotationKey = "logtrain.akkeris.io/hostname"
 const TagAnnotationKey = "logtrain.akkeris.io/tag"
+
+// AkkerisOneOffKey is the name of the label that signifies that a pod is an Akkeris one-off dyno
 const AkkerisOneOffKey = "akkeris.io/oneoff"
 
 // KubernetesDataSource uses kubernetes as a datasource for routes by listening to annotations
