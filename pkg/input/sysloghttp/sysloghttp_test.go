@@ -1,13 +1,14 @@
 package sysloghttp
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
-	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 	"log"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
+	syslog "github.com/trevorlinton/remote_syslog2/syslog"
 )
 
 func TestJsonHttpOutput(t *testing.T) {
@@ -25,6 +26,8 @@ func TestJsonHttpOutput(t *testing.T) {
 		MaxHeaderBytes: 1 << 20,
 	}
 	go s.ListenAndServe()
+	// Wait a bit for the server to come online
+	time.Sleep(3 * time.Second)
 
 	Convey("Ensure nothing blows up on the http handler stubs", t, func() {
 		So(handler.Dial(), ShouldBeNil)
