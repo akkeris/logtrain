@@ -2,6 +2,10 @@ package storage
 
 import (
 	"errors"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/akkeris/logtrain/internal/debug"
 	apps "k8s.io/api/apps/v1"
 	authorization "k8s.io/api/authorization/v1"
@@ -14,9 +18,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"strings"
-	"time"
 )
 
 const AkkerisAppLabelKey = "akkeris.io/app-name"
@@ -24,6 +25,9 @@ const AkkerisDynoTypeLabelKey = "akkeris.io/dyno-type"
 const DrainAnnotationKey = "logtrain.akkeris.io/drains"
 const HostnameAnnotationKey = "logtrain.akkeris.io/hostname"
 const TagAnnotationKey = "logtrain.akkeris.io/tag"
+
+// AkkerisOneOffKey is the name of the label that signifies that a pod is an Akkeris one-off dyno
+const AkkerisOneOffKey = "akkeris.io/oneoff"
 
 // KubernetesDataSource uses kubernetes as a datasource for routes by listening to annotations
 type KubernetesDataSource struct {
